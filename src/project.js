@@ -2,19 +2,48 @@
 
 var Unwarp = function(opts) {
 	this.options = opts || {};
-	this.sourcewidth = this.options.sourcewidth || 100;
-	this.sourceheight = this.options.sourceheight || 100;
-	this.targetwidth = this.options.targetwidth || 100;
-	this.targetheight = this.options.targetheight || 100;
-	this.corner = [
+	this.projectedleft = this.options.projectedleft || 0;
+	this.projectedtop = this.options.projectedtop || 0;
+	this.projectedstride = this.options.projectedstride || 100;
+	this.projectedwidth = this.options.projectedwidth || 100;
+	this.projectedheight = this.options.projectedheight || 100;
+	this.flatleft = this.options.flatleft || 0;
+	this.flattop = this.options.flattop || 0;
+	this.flatwidth = this.options.flatwidth || 100;
+	this.flatheight = this.options.flatheight || 100;
+	this.projectedCorner = [
 		{ x: 0, y: 0 },
-		{ x: this.sourcewidth, y: 0 },
-		{ x: this.sourcewidth, y: this.sourceheight },
-		{ x: 0, y: this.sourceheight }
+		{ x: 0, y: 0 },
+		{ x: 0, y: 0 },
+		{ x: 0, y: 0 }
+	];
+	this.projectedCorner = [
+		{ x: this.projectedleft + 0, y: this.projectedtop + 0 },
+		{ x: this.projectedleft + this.projectedwidth, y: this.projectedtop + 0 },
+		{ x: this.projectedleft + this.projectedwidth, y: this.projectedtop + this.projectedheight },
+		{ x: this.projectedleft + 0, y: this.projectedtop + this.projectedheight }
 	];
 	this.matrix = [ [1,0,0],[0,1,0], [0,0,1] ];
 	this.invmatrix = [ [1,0,0],[0,1,0], [0,0,1] ];
 	this.update();
+}
+
+Unwarp.prototype.getProjectedCornerBounds = function() {
+	var bounds = {
+		left: 99999,
+		top: 99999,
+		right: -99999,
+		bottom: -99999
+	};
+	for (var i=0; i<4; i++) {
+		if (this.projectedCorner[i].x < bounds.left) bounds.left = this.projectedCorner[i].x;
+		if (this.projectedCorner[i].x > bounds.right) bounds.right = this.projectedCorner[i].x;
+		if (this.projectedCorner[i].y < bounds.top) bounds.top = this.projectedCorner[i].y;
+		if (this.projectedCorner[i].y > bounds.bottom) bounds.bottom = this.projectedCorner[i].y;
+	}
+	bounds.width = bounds.right - bounds.left;
+	bounds.height = bounds.bottom - bounds.top;
+	return bounds;
 }
 
 Unwarp.prototype.update = function() {
@@ -24,20 +53,30 @@ Unwarp.prototype.update = function() {
 	var sub = 1.0;
 	var div = 2.0;
 
-	var hw = this.sourcewidth / div;
-	var hh = this.sourceheight / div;
+	var hw = 1.0;
+	var hh = 1.0;
+	var hl = 0;
+	var ht = 0;
 
-	var t_x1 = (this.corner[0].x / hw) - sub;
-	var t_y1 = (this.corner[0].y / hh) - sub;
+	var scx = (this.projectedleft + this.projectedwidth) / 2.0;
+	var scy = (this.projectedtop + this.projectedheight) / 2.0;
 
-	var t_x2 = (this.corner[1].x / hw) - sub;
-	var t_y2 = (this.corner[1].y / hh) - sub;
+	hw = this.projectedwidth / div;
+	hh = this.projectedheight / div;
+	hl = 0; // this.projectedleft / div;
+	ht = 0; // this.projectedtop / div;
 
-	var t_x3 = (this.corner[3].x / hw) - sub;
-	var t_y3 = (this.corner[3].y / hh) - sub;
-	
-	var t_x4 = (this.corner[2].x / hw) - sub;
-	var t_y4 = (this.corner[2].y / hh) - sub;
+	var t_x1 = ((this.projectedCorner[0].x-hl) / hw) - sub;
+	var t_y1 = ((this.projectedCorner[0].y-ht) / hh) - sub;
+
+	var t_x2 = ((this.projectedCorner[1].x-hl) / hw) - sub;
+	var t_y2 = ((this.projectedCorner[1].y-ht) / hh) - sub;
+
+	var t_x3 = ((this.projectedCorner[3].x-hl) / hw) - sub;
+	var t_y3 = ((this.projectedCorner[3].y-ht) / hh) - sub;
+
+	var t_x4 = ((this.projectedCorner[2].x-hl) / hw) - sub;
+	var t_y4 = ((this.projectedCorner[2].y-ht) / hh) - sub;
 
 	console.log(t_x1,t_y1);
 	console.log(t_x2,t_y2);
@@ -97,11 +136,11 @@ Unwarp.prototype.update = function() {
 	function A(r,c) { return coeff[r][c]; }
 
 
-	var determinant = 
+	var determinant =
 		+A(0,0)*(A(1,1)*A(2,2)-A(2,1)*A(1,2))
         -A(0,1)*(A(1,0)*A(2,2)-A(1,2)*A(2,0))
         +A(0,2)*(A(1,0)*A(2,1)-A(1,1)*A(2,0));
-	
+
 	var invdet = 1.0 / determinant;
 
 	var result = [[0,0,0],[0,0,0],[0,0,0]];
@@ -123,9 +162,9 @@ Unwarp.prototype.update = function() {
 
 }
 
-Unwarp.prototype.project = function(u, v) {
+Unwarp.prototype.projectedToFlat = function(u, v) {
 	/*
-		project from sourcespace to targetspace
+		project from projectedspace to flatspace
 
 
 			a11*j + a12*i + a13
@@ -137,29 +176,32 @@ Unwarp.prototype.project = function(u, v) {
 			a31*j + a32*i + a33
 	*/
 
+
 	var coeff = this.invmatrix;
 
-	var hsw = this.sourcewidth / 2;
-	var hsh = this.sourceheight / 2; 
-	var htw = this.targetwidth / 1;
-	var hth = this.targetheight / 1;
-	
-	var u2 = (u - 1*hsw) / hsw;
-	var v2 = (v - 1*hsh) / hsh;
+	var hsw = this.projectedwidth / 2;
+	var hsh = this.projectedheight / 2;
+	var htw = this.flatwidth / 1;
+	var hth = this.flatheight / 1;
+	var scx = (this.projectedleft * 0.0) + (this.projectedwidth * 0.5);
+	var scy = (this.projectedtop * 0.0) + (this.projectedheight * 0.5);
 
-	var xt = (coeff[0][0]*u2) + (coeff[0][1]*v2) + coeff[0][2]; 
-	var yt = (coeff[1][0]*u2) + (coeff[1][1]*v2) + coeff[1][2]; 
-	var di = (coeff[2][0]*u2) + (coeff[2][1]*v2) + coeff[2][2]; 
+	var u2 = (u - 1*scx) / scx;
+	var v2 = (v - 1*scy) / scy;
+
+	var xt = (coeff[0][0]*u2) + (coeff[0][1]*v2) + coeff[0][2];
+	var yt = (coeff[1][0]*u2) + (coeff[1][1]*v2) + coeff[1][2];
+	var di = (coeff[2][0]*u2) + (coeff[2][1]*v2) + coeff[2][2];
 
 	return {
-		x: (htw * xt) / di, 
+		x: (htw * xt) / di,
 		y: (hth * yt) / di
 	};
 }
 
-Unwarp.prototype.reverse = function(tx, ty) {
+Unwarp.prototype.flatToProjected = function(tx, ty) {
 	/*
-		projects from targetspace to sourcespace
+		projects from flatspace to projectedspace
 
 			a11*j + a12*i + a13
 		x = -------------------
@@ -169,76 +211,146 @@ Unwarp.prototype.reverse = function(tx, ty) {
 		y = -------------------
 			a31*j + a32*i + a33
 	*/
-
 	var coeff = this.matrix;
 
-	var hsw = this.sourcewidth / 2;
-	var hsh = this.sourceheight / 2;
-	var htw = this.targetwidth / 1;
-	var hth = this.targetheight / 1;
+	var hsw = this.projectedwidth / 2;
+	var hsh = this.projectedheight / 2;
+	var htw = this.flatwidth / 1;
+	var hth = this.flatheight / 1;
 
 	var u = (tx - 0*htw) / htw;
 	var v = (ty - 0*hth) / hth;
 
-	var xt = (coeff[0][0]*u) + (coeff[0][1]*v) + coeff[0][2]; 
-	var yt = (coeff[1][0]*u) + (coeff[1][1]*v) + coeff[1][2]; 
-	var di = (coeff[2][0]*u) + (coeff[2][1]*v) + coeff[2][2]; 
- 
+	var xt = (coeff[0][0]*u) + (coeff[0][1]*v) + coeff[0][2];
+	var yt = (coeff[1][0]*u) + (coeff[1][1]*v) + coeff[1][2];
+	var di = (coeff[2][0]*u) + (coeff[2][1]*v) + coeff[2][2];
+
 	return {
-		x: hsw + (hsw * xt) / di, 
+		x: hsw + (hsw * xt) / di,
 		y: hsh + (hsh * yt) / di
 	};
 }
 
 var CanvasUnwarp = function(options) {
-	// helper method for unwrapping content between canvases
+	// helper method for brute force unwrapping content between canvases
 	var options = options || {};
 	this.projection = options.projection || null;
-	this.source = options.source || null;
-	this.target = options.target || null;
+	this.projected = options.projected || null;
+	this.flat = options.flat || null;
 }
 
-CanvasUnwarp.prototype.draw = function() {
-	// unwarp the contents of the source quad into the entire target canvas
+CanvasUnwarp.prototype.drawProjected = function() {
+	// unwarp the contents of the projected quad into the entire flat canvas
 	var p = this.projection;
 
-	this.target.clearRect(
-		0,
-		0,
-		p.targetwidth,
-		p.targetheight);
+	var bounds = p.getProjectedCornerBounds();
 
-	var orig = this.source.getImageData(
+	var srcdata = this.flat.getImageData(
 		0,
 		0,
-		p.sourcewidth,
-		p.sourceheight);
+		p.flatwidth,
+		p.flatheight);
 
-	var data = this.target.getImageData(
+	var targdata = this.projected.getImageData(
 		0,
 		0,
-		p.targetwidth,
-		p.targetheight);
+		p.projectedwidth,
+		p.projectedheight);
 
 	var res = 1;
-	for (var j=0; j<p.targetheight; j+=res) {
-		for (var i=0; i<p.targetwidth; i+=res) {
-			var pp = p.reverse(i, j);
-			var ot = 4 * (j * p.targetwidth + i);
-			var os = 4 * (Math.round(pp.y) * p.sourcewidth + Math.round(pp.x));
-			data.data[ot+0] = orig.data[os+0];
-			data.data[ot+1] = orig.data[os+1];
-			data.data[ot+2] = orig.data[os+2];
-			data.data[ot+3] = orig.data[os+3];
+	for (var j=bounds.top; j<=bounds.bottom; j+=res) {
+		for (var i=bounds.left; i<=bounds.right; i+=res) {
+			var pp = p.projectedToFlat(i, j);
+			var sx = Math.round(pp.x);
+			var sy = Math.round(pp.y);
+			var ot = 4 * (j * p.projectedwidth + i);
+			if (sx >= 0 && sy >= 0 && sx < p.flatwidth && sy < p.flatheight) {
+				var os = 4 * (sy * p.flatwidth + sx);
+				targdata.data[ot+0] = srcdata.data[os+0];
+				targdata.data[ot+1] = srcdata.data[os+1];
+				targdata.data[ot+2] = srcdata.data[os+2];
+				targdata.data[ot+3] = srcdata.data[os+3];
+			}
+		}
+	}
+	this.projected.putImageData(targdata, 0, 0);
+
+}
+
+CanvasUnwarp.prototype.drawFlat = function() {
+	// unwarp the contents of the projected quad into the entire flat canvas
+	var p = this.projection;
+
+	this.flat.clearRect(
+		0,
+		0,
+		p.flatwidth,
+		p.flatheight);
+
+	var srcdata = this.projected.getImageData(
+		0,
+		0,
+		p.projectedwidth,
+		p.projectedheight);
+
+	var targdata = this.flat.getImageData(
+		0,
+		0,
+		p.flatwidth,
+		p.flatheight);
+
+	var res = 1;
+	for (var j=0; j<p.flatheight; j+=res) {
+		for (var i=0; i<p.flatwidth; i+=res) {
+			var pp = p.flatToProjected(i, j);
+			var sx = Math.round(pp.x);
+			var sy = Math.round(pp.y);
+			var ot = 4 * (j * p.flatwidth + i);
+			if (sx >= 0 && sy >= 0 && sx < p.projectedwidth && sy < p.projectedheight) {
+				var os = 4 * (sy * p.projectedwidth + sx);
+				targdata.data[ot+0] = srcdata.data[os+0];
+				targdata.data[ot+1] = srcdata.data[os+1];
+				targdata.data[ot+2] = srcdata.data[os+2];
+				targdata.data[ot+3] = srcdata.data[os+3];
+			}
 		}
 	}
 
-	this.target.putImageData(data, 0, 0);
+	this.flat.putImageData(targdata, 0, 0);
 }
+
+CanvasUnwarp.prototype.cross = function(ctx, x, y, radii, lineWidth) {
+	ctx.lineWidth = lineWidth;
+	ctx.beginPath();
+	ctx.moveTo(x, y-radii);
+	ctx.lineTo(x, y+radii);
+	ctx.moveTo(x-radii, y);
+	ctx.lineTo(x+radii, y);
+	ctx.closePath();
+	ctx.stroke();
+}
+
+CanvasUnwarp.prototype.drawProjectedDebug = function(ctx) {
+	ctx.strokeStyle = '#f0f';
+	for (var c=0; c<4; c++) {
+		this.cross(ctx, this.projection.projectedCorner[c].x, this.projection.projectedCorner[c].y, 10, 3);
+	}
+}
+
+CanvasUnwarp.prototype.drawFlatDebug = function(ctx) {
+	ctx.strokeStyle = '#ff0';
+	this.cross(ctx, this.projection.flatleft, this.projection.flattop, 10, 3);
+	this.cross(ctx, this.projection.flatleft + this.projection.flatwidth, this.projection.flattop, 10, 3);
+	this.cross(ctx, this.projection.flatleft + this.projection.flatwidth, this.projection.flattop + this.projection.flatheight, 10, 3);
+	this.cross(ctx, this.projection.flatleft, this.projection.flattop+ this.projection.flatheight, 10, 3);
+}
+
 
 var Project = {};
 Project.Unwarp = Unwarp;
+Project.Warp = Unwarp;
 Project.CanvasUnwarp = CanvasUnwarp;
+Project.CanvasWarp = CanvasUnwarp;
 ns.Project = Project;
 
 })(this);
