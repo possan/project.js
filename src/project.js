@@ -4,7 +4,6 @@ var Unwarp = function(opts) {
 	this.options = opts || {};
 	this.projectedleft = this.options.projectedleft || 0;
 	this.projectedtop = this.options.projectedtop || 0;
-	this.projectedstride = this.options.projectedstride || 100;
 	this.projectedwidth = this.options.projectedwidth || 100;
 	this.projectedheight = this.options.projectedheight || 100;
 	this.flatleft = this.options.flatleft || 0;
@@ -425,11 +424,256 @@ CanvasUnwarp.prototype.drawFlatDebug = function(ctx) {
 }
 
 
+
+glMatrixArrayType=typeof Float32Array!="undefined"?Float32Array:typeof WebGLFloatArray!="undefined"?WebGLFloatArray:Array;
+var mat4={};
+mat4.identity=function(a){a[0]=1;a[1]=0;a[2]=0;a[3]=0;a[4]=0;a[5]=1;a[6]=0;a[7]=0;a[8]=0;a[9]=0;a[10]=1;a[11]=0;a[12]=0;a[13]=0;a[14]=0;a[15]=1;return a};
+mat4.create=function(a){var b=new glMatrixArrayType(16);if(a){b[0]=a[0];b[1]=a[1];b[2]=a[2];b[3]=a[3];b[4]=a[4];b[5]=a[5];b[6]=a[6];b[7]=a[7];b[8]=a[8];b[9]=a[9];b[10]=a[10];b[11]=a[11];b[12]=a[12];b[13]=a[13];b[14]=a[14];b[15]=a[15]}return b};
+mat4.ortho=function(a,b,c,d,e,g,f){f||(f=mat4.create());var h=b-a,i=d-c,j=g-e;f[0]=2/h;f[1]=0;f[2]=0;f[3]=0;f[4]=0;f[5]=2/i;f[6]=0;f[7]=0;f[8]=0;f[9]=0;f[10]=-2/j;f[11]=0;f[12]=-(a+b)/h;f[13]=-(d+c)/i;f[14]=-(g+e)/j;f[15]=1;return f};
+
+
+window.requestAnimFrame = (function() {
+  return window.requestAnimationFrame ||
+         window.webkitRequestAnimationFrame ||
+         window.mozRequestAnimationFrame ||
+         window.oRequestAnimationFrame ||
+         window.msRequestAnimationFrame ||
+         function(callback, element) {
+           window.setTimeout(callback, 1000/60);
+         };
+})();
+
+
+
+
+
+
+WebGLUnwarp = function(options) {
+	this.projection = options.projection || null;
+	this.projected = options.projected || null;
+	this.flat = options.flat || null;
+	this.flatleft = options.flatleft || 0;
+	this.flattop = options.flattop || 0;
+	this.flatwidth = options.flatwidth || 1.0;
+	this.flatheight = options.flatheight || 1.0;
+	this.texture = options.texture || null;
+	this.cubeVertexPositionBuffer = null;
+	this.cubeVertexTextureCoordBuffer = null;
+	this.cubeVertexIndexBuffer = null;
+	this.allocated = false;
+	this.resolution = options.resolution || 15;
+}
+
+WebGLUnwarp.prototype.createFragmentShader = function(gl) {
+	var str =
+		'precision mediump float;\n'+
+		'varying vec2 vTextureCoord;\n'+
+		'uniform sampler2D uSampler;\n'+
+		'void main(void) {\n'+
+		'\tgl_FragColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));\n'+
+		'}';
+	var shader = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(shader, str);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        alert(gl.getShaderInfoLog(shader));
+        return null;
+    }
+	return shader;
+}
+
+WebGLUnwarp.prototype.createVertexShader = function(gl) {
+	var str =
+		'attribute vec3 aVertexPosition;\n'+
+	    'attribute vec2 aTextureCoord;\n'+
+	    'uniform mat4 uMVMatrix;\n'+
+	    'uniform mat4 uPMatrix;\n'+
+	    'varying vec2 vTextureCoord;\n'+
+	    'void main(void) {\n'+
+	    '\tgl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);\n'+
+	    '\tvTextureCoord = aTextureCoord;\n'+
+	    '}';
+	var shader = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(shader, str);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    	alert(gl.getShaderInfoLog(shader));
+        return null;
+    }
+    return shader;
+}
+
+WebGLUnwarp.prototype.mapuv = function(u,v) {
+	return {
+		u: u * this.flatwidth + this.flatleft,
+		v: v * this.flatheight + this.flattop
+	}
+}
+
+WebGLUnwarp.prototype.drawProjected = function() {
+	var gl = this.projected;
+	var p = this.projection;
+
+	if (!this.allocated) {
+        this.cubeVertexPositionBuffer = gl.createBuffer();
+        this.cubeVertexTextureCoordBuffer = gl.createBuffer();
+        this.cubeVertexIndexBuffer = gl.createBuffer();
+
+        this.shaderProgram = gl.createProgram();
+        gl.attachShader(this.shaderProgram, this.createVertexShader(gl));
+        gl.attachShader(this.shaderProgram, this.createFragmentShader(gl));
+        gl.linkProgram(this.shaderProgram);
+		if (!gl.getProgramParameter(this.shaderProgram, gl.LINK_STATUS)) {
+			alert("Could not link the shader program!");
+			return;
+		}
+
+        // gl.useProgram(this.shaderProgram);
+
+        this.vertexPositionAttribute = gl.getAttribLocation(this.shaderProgram, "aVertexPosition");
+        this.textureCoordAttribute = gl.getAttribLocation(this.shaderProgram, "aTextureCoord");
+
+        this.pMatrixUniform = gl.getUniformLocation(this.shaderProgram, "uPMatrix");
+        this.mvMatrixUniform = gl.getUniformLocation(this.shaderProgram, "uMVMatrix");
+        this.samplerUniform = gl.getUniformLocation(this.shaderProgram, "uSampler");
+
+        this.allocated = true;
+	}
+
+
+
+    var vertices = [];
+    var textureCoords = [];
+    var cubeVertexIndices = [];
+
+    var idx = 0;
+
+    var usteps = this.resolution;
+    var vsteps = this.resolution;
+
+    for (var vi=0; vi<vsteps; vi++) {
+        for (var ui=0; ui<usteps; ui++) {
+            var u0 = ui / usteps;
+            var v0 = vi / vsteps;
+            var u1 = (ui+1.0) / usteps;
+            var v1 = (vi+1.0) / vsteps;
+
+            var c0 = this.projection.flatToProjected(100.0 * u0, 100.0 * v0);
+            var c1 = this.projection.flatToProjected(100.0 * u1, 100.0 * v0);
+            var c2 = this.projection.flatToProjected(100.0 * u1, 100.0 * v1);
+            var c3 = this.projection.flatToProjected(100.0 * u0, 100.0 * v1);
+
+            vertices.push(c0.x);
+            vertices.push(c0.y);
+            vertices.push(0.0);
+
+            vertices.push(c1.x);
+            vertices.push(c1.y);
+            vertices.push(0.0);
+
+            vertices.push(c2.x);
+            vertices.push(c2.y);
+            vertices.push(0.0);
+
+            vertices.push(c3.x);
+            vertices.push(c3.y);
+            vertices.push(0.0);
+
+            var uv0 = this.mapuv(u0, 1-v0);
+            var uv1 = this.mapuv(u1, 1-v0);
+            var uv2 = this.mapuv(u1, 1-v1);
+            var uv3 = this.mapuv(u0, 1-v1);
+
+            textureCoords.push(uv0.u);
+            textureCoords.push(uv0.v);
+
+            textureCoords.push(uv1.u);
+            textureCoords.push(uv1.v);
+
+            textureCoords.push(uv2.u);
+            textureCoords.push(uv2.v);
+
+            textureCoords.push(uv3.u);
+            textureCoords.push(uv3.v);
+
+            cubeVertexIndices.push(idx*4+0);
+            cubeVertexIndices.push(idx*4+1);
+            cubeVertexIndices.push(idx*4+2);
+
+            cubeVertexIndices.push(idx*4+0);
+            cubeVertexIndices.push(idx*4+2);
+            cubeVertexIndices.push(idx*4+3);
+
+            idx ++;
+        }
+    }
+
+    gl.useProgram(this.shaderProgram);
+
+    gl.enableVertexAttribArray(this.vertexPositionAttribute);
+    gl.enableVertexAttribArray(this.textureCoordAttribute);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.cubeVertexPositionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+    this.cubeVertexPositionBuffer.itemSize = 3;
+    this.cubeVertexPositionBuffer.numItems = vertices.length / 1;
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.cubeVertexTextureCoordBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
+    this.cubeVertexTextureCoordBuffer.itemSize = 2;
+    this.cubeVertexTextureCoordBuffer.numItems = textureCoords.length / 1;
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.cubeVertexIndexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cubeVertexIndices), gl.STATIC_DRAW);
+    this.cubeVertexIndexBuffer.itemSize = 1;
+    this.cubeVertexIndexBuffer.numItems = cubeVertexIndices.length / 1;
+
+
+    var mvMatrix = mat4.create();
+    var pMatrix = mat4.create();
+    mat4.identity(pMatrix);
+    mat4.ortho(0,p.projectedwidth,p.projectedheight,0,-1,1,pMatrix);
+    mat4.identity(mvMatrix);
+
+    gl.uniformMatrix4fv(this.pMatrixUniform, false, pMatrix);
+    gl.uniformMatrix4fv(this.mvMatrixUniform, false, mvMatrix);
+
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.texture);
+    gl.uniform1i(this.samplerUniform, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.cubeVertexPositionBuffer);
+    gl.vertexAttribPointer(this.vertexPositionAttribute, this.cubeVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.cubeVertexTextureCoordBuffer);
+    gl.vertexAttribPointer(this.textureCoordAttribute, this.cubeVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.cubeVertexIndexBuffer);
+
+    gl.drawElements(gl.TRIANGLES, this.cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
 var Project = {};
 Project.Unwarp = Unwarp;
 Project.Warp = Unwarp;
 Project.CanvasUnwarp = CanvasUnwarp;
 Project.CanvasWarp = CanvasUnwarp;
+Project.WebGLUnwarp = WebGLUnwarp;
+Project.WebGLWarp = WebGLUnwarp;
 ns.Project = Project;
 
 })(this);

@@ -1,0 +1,159 @@
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+<script src="../src/project.js" type="text/javascript"></script>
+<script type="text/javascript">
+
+    var warp1;
+    var warp2;
+    var canvaswarp1;
+    var canvaswarp2;
+
+    var gl;
+
+    function initGL(canvas) {
+        try {
+            gl = canvas.getContext("experimental-webgl");
+            gl.viewportWidth = canvas.width;
+            gl.viewportHeight = canvas.height;
+        } catch (e) {
+        }
+        if (!gl) {
+            alert("Could not initialise WebGL, sorry :-(");
+        }
+    }
+
+    function handleLoadedTexture(texture) {
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+    }
+
+    var canvasTexture;
+
+    function drawScene() {
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    }
+
+    var flatctx;
+    var flatelement;
+
+    function updateDynamicTexture() {
+        var timeNow = new Date().getTime();
+        flatctx.clearRect(0,0, 256,256);
+        flatctx.drawImage(
+            img1,
+            160*Math.sin(timeNow / 270.0) - (840-512)/2.0,
+            30*Math.cos(timeNow / 160.0) - (360-256)/2.0);
+        flatctx.strokeStyle = '#fff';
+        flatctx.lineWidth = 10;
+        flatctx.beginPath();
+        flatctx.moveTo(0,0);
+        flatctx.lineTo(256,256);
+        flatctx.moveTo(0,256);
+        flatctx.lineTo(128,128);
+        flatctx.closePath();
+        flatctx.stroke();
+        gl.bindTexture(gl.TEXTURE_2D, canvasTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, flatelement);
+    }
+
+    function initDynamicTexture() {
+        flatelement = document.getElementById('flat');
+        flatctx = flatelement.getContext('2d');
+        canvasTexture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, canvasTexture);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+    }
+
+    function tick() {
+        requestAnimFrame(tick);
+        updateDynamicTexture();
+        drawScene();
+        canvaswarp1.drawProjected();
+        canvaswarp2.drawProjected();
+    }
+
+
+    function initWarp() {
+
+        warp1 = new Project.Warp({
+            forward: true,
+            projectedwidth: 800,
+            projectedheight: 600,
+            flatwidth: 100,
+            flatheight: 100,
+        });
+
+        warp2 = new Project.Warp({
+            forward: true,
+            projectedwidth: 800,
+            projectedheight: 600,
+            flatwidth: 100,
+            flatheight: 100,
+        });
+
+        warp1.projectedCorner[0] = { x: 138, y: 0 };
+        warp1.projectedCorner[1] = { x: 370, y: 85 };
+        warp1.projectedCorner[2] = { x: 311, y: 250 };
+        warp1.projectedCorner[3] = { x: 5, y: 298 };
+
+        warp2.projectedCorner[0] = { x: 370, y: 85 };
+        warp2.projectedCorner[1] = { x: 730, y: 30 };
+        warp2.projectedCorner[2] = { x: 600, y: 600 };
+        warp2.projectedCorner[3] = { x: 311, y: 250 };
+
+        warp1.update();
+        warp2.update();
+
+
+        canvaswarp1 = new Project.WebGLUnwarp({
+            projection: warp1,
+            flat: flatelement,
+            flatleft: 0,
+            flattop: 0.25,
+            flatwidth: 0.5,
+            flatheight: 0.5,
+            projected: gl,
+            texture: canvasTexture
+        });
+
+        canvaswarp2 = new Project.WebGLUnwarp({
+            projection: warp2,
+            flat: flatelement,
+            flatleft: 0.5,
+            flattop: 0.25,
+            flatwidth: 0.5,
+            flatheight: 0.5,
+            projected: gl,
+            texture: canvasTexture
+        });
+
+    }
+
+    function webGLStart() {
+        var canvas = document.getElementById("lesson05-canvas");
+        initGL(canvas);
+        initDynamicTexture();
+        initWarp();
+        updateDynamicTexture();
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.enable(gl.DEPTH_TEST);
+        tick();
+    }
+
+</script>
+</head>
+<body onload="webGLStart();">
+    <canvas id="lesson05-canvas" style="border: none;" width="800" height="600"></canvas>
+    <canvas id="flat" width="256" height="256" style="background-color:#88f"></canvas>
+    <img src="155.jpg" id="img1" style="display:none;" />
+</body>
+</html>
