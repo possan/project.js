@@ -18,20 +18,15 @@
 			inputctx.clearRect(0,0, 640,360);
 			inputctx.drawImage(videoelement, 0, 0, 640, 360);
 
-			bufferctx.clearRect(0,0, 128, 128);
-			bufferctx.drawImage(inputel, 200, 0, 250, 200, 0, 0, 128, 128);
-
 			outputctx.clearRect(0,0, 640,360);
 
 			canvaswarp1.drawProjected();
-			// canvaswarp1.drawSourceDebug(inputctx);
+			canvaswarp1.drawFlatDebug(inputctx);
 			canvaswarp1.drawProjectedDebug(outputctx);
 
-			/*
-			canvaswarp2.draw();
-			canvaswarp2.drawSourceDebug(inputctx);
-			canvaswarp2.drawTargetDebug(outputctx);
-			*/
+			canvaswarp2.drawProjected();
+			canvaswarp2.drawFlatDebug(inputctx);
+			canvaswarp2.drawProjectedDebug(outputctx);
 
 			setTimeout(updateFrame, 10);
 		}
@@ -48,70 +43,59 @@
 			inputel = $('#input')[0];
 			inputctx = inputel.getContext('2d');
 			outputctx = $('#output')[0].getContext('2d');
-			bufferctx = $('#buffer')[0].getContext('2d');
 
 			warp1 = new Project.Warp({
 				forward: true,
-				sourcewidth: 128,
-				sourceheight: 128,
 				projectedwidth: 640,
 				projectedheight: 360
+			});
+
+			warp2 = new Project.Warp({
+				forward: true,
+				projectedwidth: 640,
+				projectedheight: 360,
 			});
 
 			warp1.projectedCorner[0] = { x: 138, y: 65 };
 			warp1.projectedCorner[1] = { x: 370, y: 85 };
 			warp1.projectedCorner[2] = { x: 311, y: 250 };
 			warp1.projectedCorner[3] = { x: 95, y: 298 };
+
+			warp2.projectedCorner[0] = { x: 370, y: 85 };
+			warp2.projectedCorner[1] = { x: 630, y: 30 };
+			warp2.projectedCorner[2] = { x: 551, y: 340 };
+			warp2.projectedCorner[3] = { x: 311, y: 250 };
+
 			warp1.update();
+			warp2.update();
+
 
 			canvaswarp1 = new Project.CanvasUnwarp({
 				id: 'Slice 1',
 				projection: warp1,
-				flat: bufferctx,
-				flatleft: 0,
-				flattop: 0,
-				flatwidth: 128,
-				flatheight: 128,
-				/*
-				sourceleft: 240,
-				sourcetop: 10,
-				sourcewidth: 200,
-				sourceheight: 100,
-				*/
+				flat: inputel,
+				flatleft: 100,
+				flattop: 10,
+				flatwidth: 250,
+				flatheight: 200,
 				projected: outputctx,
-				/*sourceelement: inputel,
-				bufferwidth: 256,
-				bufferheight: 256,
-				bufferdebug: true
-				*/
+				bufferwidth: 64,
+				bufferheight: 64
 			});
 
-			/*
-			warp2 = new Project.Warp({
-				forward: true,
-				sourceleft: 0,
-				sourcetop: 0,
-				sourcestride: 640,
-				sourcewidth: 320,
-				sourceheight: 160,
-				targetwidth: 640,
-				targetheight: 360,
-				bufferwidth: 128,
-				bufferheight: 256,
-				bufferdebug: true
-			});
-			warp2.corner[0] = { x: 438, y: 55 };
-			warp2.corner[1] = { x: 630, y: 30 };
-			warp2.corner[2] = { x: 611, y: 340 };
-			warp2.corner[3] = { x: 495, y: 308 };
-			warp2.update();
 			canvaswarp2 = new Project.CanvasUnwarp({
 				id: 'Slice 2',
 				projection: warp2,
-				source: inputctx,
-				target: outputctx,
+				flat: inputel,
+				flatleft: 350,
+				flattop: 10,
+				flatwidth: 250,
+				flatheight: 200,
+				projected: outputctx,
+				bufferwidth: 64,
+				bufferheight: 64
 			});
-			*/
+
 			setTimeout(updateFrame, 10);
 		}
 
@@ -124,8 +108,9 @@
 	<h1>Video canvas projection mapping (forward wrapping)</h1>
 
 <canvas id="output" width="640" height="360" style="background-color:#7f7"></canvas>
-<canvas id="buffer" width="128" height="128" style="background-color:#f8a"></canvas>
+
 <canvas id="input" width="640" height="360" style="background-color:#88f"></canvas>
+
 <video id="vid" src="small.mp4" width="640" height="360" autoplay="autoplay" controls="controls" style="background-color:#f88"></video>
 
 <p>Sample video from <a href="http://techslides.com/sample-webm-ogg-and-mp4-video-files-for-html5/">http://techslides.com/sample-webm-ogg-and-mp4-video-files-for-html5/</a></p>

@@ -237,6 +237,35 @@ var CanvasUnwarp = function(options) {
 	this.projection = options.projection || null;
 	this.projected = options.projected || null;
 	this.flat = options.flat || null;
+	this.flatleft = options.flatleft || 0;
+	this.flattop = options.flattop || 0;
+	this.flatwidth = options.flatwidth || 128;
+	this.flatheight = options.flatheight || 128;
+
+	this.buffer = options.buffer || null;
+
+	if (options.bufferwidth || options.bufferheight) {
+		this.bufferwidth = options.bufferwidth || 128;
+		this.bufferheight = options.bufferheight || 128;
+		this.bufferelement = document.createElement('canvas');
+		this.bufferelement.width = this.bufferwidth;
+		this.bufferelement.height = this.bufferheight;
+		this.buffer = this.bufferelement.getContext('2d');
+		if (options.bufferdebug) {
+			document.body.appendChild(this.bufferelement);
+		}
+	}
+
+	// this.usebuffer = false;
+	// this.bufferwidth = options.bufferwidth || 128;
+	// this.bufferheight = options.bufferheight || 128;
+	if (this.buffer != null) {
+		// this.buffer.width = this.bufferwidth;
+		// this.buffer.height = this.bufferheight;
+		this.projection.flatwidth = this.bufferwidth;
+		this.projection.flatheight = this.bufferheight;
+		this.projection.update();
+	}
 }
 
 CanvasUnwarp.prototype.drawProjected = function() {
@@ -245,35 +274,78 @@ CanvasUnwarp.prototype.drawProjected = function() {
 
 	var bounds = p.getProjectedCornerBounds();
 
-	var srcdata = this.flat.getImageData(
-		0,
-		0,
-		p.flatwidth,
-		p.flatheight);
+	if (this.buffer != null) {
 
-	var targdata = this.projected.getImageData(
-		0,
-		0,
-		p.projectedwidth,
-		p.projectedheight);
+		// copy to buffer...
 
-	var res = 1;
-	for (var j=bounds.top; j<=bounds.bottom; j+=res) {
-		for (var i=bounds.left; i<=bounds.right; i+=res) {
-			var pp = p.projectedToFlat(i, j);
-			var sx = Math.round(pp.x);
-			var sy = Math.round(pp.y);
-			var ot = 4 * (j * p.projectedwidth + i);
-			if (sx >= 0 && sy >= 0 && sx < p.flatwidth && sy < p.flatheight) {
-				var os = 4 * (sy * p.flatwidth + sx);
-				targdata.data[ot+0] = srcdata.data[os+0];
-				targdata.data[ot+1] = srcdata.data[os+1];
-				targdata.data[ot+2] = srcdata.data[os+2];
-				targdata.data[ot+3] = srcdata.data[os+3];
+		this.buffer.clearRect(0,0, this.bufferwidth, this.bufferheight);
+		this.buffer.drawImage(this.flat, this.flatleft, this.flattop, this.flatwidth, this.flatheight, 0, 0, this.bufferwidth, this.bufferheight);
+
+
+		var srcdata = this.buffer.getImageData(
+			0,
+			0,
+			this.bufferwidth,
+			this.bufferheight);
+
+		var targdata = this.projected.getImageData(
+			0,
+			0,
+			p.projectedwidth,
+			p.projectedheight);
+
+		var res = 1;
+		for (var j=bounds.top; j<=bounds.bottom; j+=res) {
+			for (var i=bounds.left; i<=bounds.right; i+=res) {
+				var pp = p.projectedToFlat(i, j);
+				var sx = Math.round(pp.x);
+				var sy = Math.round(pp.y);
+				var ot = 4 * (j * p.projectedwidth + i);
+				if (sx >= 0 && sy >= 0 && sx < this.bufferwidth && sy < this.bufferheight) {
+					var os = 4 * (sy * this.bufferwidth + sx);
+					targdata.data[ot+0] = srcdata.data[os+0];
+					targdata.data[ot+1] = srcdata.data[os+1];
+					targdata.data[ot+2] = srcdata.data[os+2];
+					targdata.data[ot+3] = srcdata.data[os+3];
+				}
 			}
 		}
+
+		this.projected.putImageData(targdata, 0, 0);
+
+	} else {
+
+		var srcdata = this.flat.getImageData(
+			0,
+			0,
+			p.flatwidth,
+			p.flatheight);
+
+		var targdata = this.projected.getImageData(
+			0,
+			0,
+			p.projectedwidth,
+			p.projectedheight);
+
+		var res = 1;
+		for (var j=bounds.top; j<=bounds.bottom; j+=res) {
+			for (var i=bounds.left; i<=bounds.right; i+=res) {
+				var pp = p.projectedToFlat(i, j);
+				var sx = Math.round(pp.x);
+				var sy = Math.round(pp.y);
+				var ot = 4 * (j * p.projectedwidth + i);
+				if (sx >= 0 && sy >= 0 && sx < p.flatwidth && sy < p.flatheight) {
+					var os = 4 * (sy * p.flatwidth + sx);
+					targdata.data[ot+0] = srcdata.data[os+0];
+					targdata.data[ot+1] = srcdata.data[os+1];
+					targdata.data[ot+2] = srcdata.data[os+2];
+					targdata.data[ot+3] = srcdata.data[os+3];
+				}
+			}
+		}
+		this.projected.putImageData(targdata, 0, 0);
 	}
-	this.projected.putImageData(targdata, 0, 0);
+
 
 }
 
@@ -339,10 +411,17 @@ CanvasUnwarp.prototype.drawProjectedDebug = function(ctx) {
 
 CanvasUnwarp.prototype.drawFlatDebug = function(ctx) {
 	ctx.strokeStyle = '#ff0';
-	this.cross(ctx, this.projection.flatleft, this.projection.flattop, 10, 3);
-	this.cross(ctx, this.projection.flatleft + this.projection.flatwidth, this.projection.flattop, 10, 3);
-	this.cross(ctx, this.projection.flatleft + this.projection.flatwidth, this.projection.flattop + this.projection.flatheight, 10, 3);
-	this.cross(ctx, this.projection.flatleft, this.projection.flattop+ this.projection.flatheight, 10, 3);
+	if (this.buffer != null) {
+		this.cross(ctx, this.flatleft, this.flattop, 10, 3);
+		this.cross(ctx, this.flatleft + this.flatwidth, this.flattop, 10, 3);
+		this.cross(ctx, this.flatleft + this.flatwidth, this.flattop + this.flatheight, 10, 3);
+		this.cross(ctx, this.flatleft, this.flattop+ this.flatheight, 10, 3);
+	} else {
+		this.cross(ctx, this.projection.flatleft, this.projection.flattop, 10, 3);
+		this.cross(ctx, this.projection.flatleft + this.projection.flatwidth, this.projection.flattop, 10, 3);
+		this.cross(ctx, this.projection.flatleft + this.projection.flatwidth, this.projection.flattop + this.projection.flatheight, 10, 3);
+		this.cross(ctx, this.projection.flatleft, this.projection.flattop+ this.projection.flatheight, 10, 3);
+	}
 }
 
 
