@@ -87,7 +87,7 @@
         gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
-    var gridpos = 0;
+    var gridpos = -1;
 
     var grid = [
         [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
@@ -120,11 +120,11 @@
             canvasunwarp.drawFlat(unwarped);
 
             unwarped = unwarpedoverlayelement.getContext('2d');
-            unwarped.clearRect(0, 0, 256, 256);
+            unwarped.clearRect(0, 0, 256, 128);
             generateRecogOverlay(unwarped, true, false);
 
             unwarped = unwarped2overlayelement.getContext('2d');
-            unwarped.clearRect(0, 0, 256, 256);
+            unwarped.clearRect(0, 0, 256, 128);
             generateRecogOverlay(unwarped, true, true);
         }
     }
@@ -141,19 +141,26 @@
         }
         for(var r=0; r<8; r++) {
             for(var i=0; i<16; i++) {
-                var x = 25 + 14 * i;
-                var y = 60 + 14 * r;
+                var x = 0 + 16 * i;
+                var y = 0 + 16 * r;
                 if (renderoutput) {
                     var v = grid[r][i];
-                    unwarped.fillStyle = '#222';
-                    if (v == 1) unwarped.fillStyle = '#fff';
-                    if (v == 2) unwarped.fillStyle = '#f30';
-                    if (v == 3) unwarped.fillStyle = '#1f2';
-                    if (v == 4) unwarped.fillStyle = '#07f';
-                    unwarped.fillRect(x-4, y-4, 8, 8);
+                    unwarped.fillStyle = '#000';
+
+                    if (i == gridpos) {
+                        if (v > 1)
+                            unwarped.fillStyle = '#fff';
+                    } else {
+                        // if (v == 1) unwarped.fillStyle = '#222';
+                        if (v == 2) unwarped.fillStyle = '#330';
+                        if (v == 3) unwarped.fillStyle = '#310';
+                        if (v == 4) unwarped.fillStyle = '#131';
+                        if (v == 5) unwarped.fillStyle = '#013';
+                    }
+                    unwarped.fillRect(x+2, y+2, 12, 12);
                 }
                 if (debug) {
-                    unwarped.strokeRect(x-4, y-4, 8, 8);
+                    unwarped.strokeRect(x+2, y+2, 12, 12);
                 }
             }
         }
@@ -161,21 +168,21 @@
 
     function updateAnalysis() {
         var ctx = unwarpedelement.getContext('2d');
-        var img = ctx.getImageData(0, 0, 256, 256);
+        var img = ctx.getImageData(0, 0, 256, 128);
         for(var r=0; r<8; r++) {
             for(var i=0; i<16; i++) {
-                var x = 25 + 14 * i;
-                var y = 60 + 14 * r;
+                var x = 0 + 16 * i;
+                var y = 0 + 16 * r;
                 var v = Math.round(Math.random() * 5);
 
 
                 var ar = 0;
                 var ag = 0;
                 var ab = 0;
-                for (var sy=0; sy<6; sy++){
-                    for (var sx=0; sx<6; sx++){
-                        var y2 = y - 3 + sy;
-                        var x2 = x - 3 + sx;
+                for (var sy=0; sy<16; sy++){
+                    for (var sx=0; sx<16; sx++){
+                        var y2 = y - 0 + sy;
+                        var x2 = x - 0 + sx;
                         var o = (y2 * 256 + x2) * 4;
                         ar += img.data[o+0];
                         ag += img.data[o+1];
@@ -183,19 +190,21 @@
                     }
                 }
 
-                ar /= 6*6;
-                ag /= 6*6;
-                ab /= 6*6;
+                ar /= 16*16;
+                ag /= 16*16;
+                ab /= 16*16;
 
                 v = 0;
                 if (ar > 128 && ag > 128 && ab > 128)
                     v = 1;
-                else if (ar > 128 && ag < 128 && ab < 128)
+                else if (ar > 128 && ag > 128 && ab < 128)
                     v = 2;
-                else if (ar < 128 && ag > 128 && ab < 128)
+                else if (ar > 128 && ag < 128 && ab < 128)
                     v = 3;
-                else if (ar < 128 && ag < 128 && ab > 128)
+                else if (ar < 128 && ag > 128 && ab < 128)
                     v = 4;
+                else if (ar < 128 && ag < 128 && ab > 128)
+                    v = 5;
 
                 if (i == gridpos && r > 5) v = (i % 4 == 0) ? 1 : 4;
 
@@ -208,10 +217,10 @@
 
         texture = textureelement.getContext('2d');
         texture.fillStyle = '#000'
-        texture.fillRect(0, 0, 256, 256);
+        texture.fillRect(0, 0, 256, 128);
 
         if (mode != 3) {
-            texture.drawImage(unwarpedelement, 0, 0, 256, 256);
+            texture.drawImage(unwarpedelement, 0, 0, 256, 128);
         }
 
         if (mode != 3) {
@@ -220,12 +229,12 @@
             texture.beginPath();
             texture.moveTo(0, 0);
             texture.lineTo(256, 0);
-            texture.lineTo(256, 256);
-            texture.lineTo(0, 256);
+            texture.lineTo(256, 128);
+            texture.lineTo(0, 128);
             texture.lineTo(0, 0);
-            texture.lineTo(256, 256);
+            texture.lineTo(256, 128);
             texture.moveTo(256, 0);
-            texture.lineTo(0, 256);
+            texture.lineTo(0, 128);
             texture.closePath();
             texture.stroke();
 
@@ -289,7 +298,7 @@
 
     function saveSettings() {
         setConfigValue('unwarp_x0', warp2.projectedCorner[0].x);
-        setConfigValue('unwarp_x0', warp2.projectedCorner[0].y);
+        setConfigValue('unwarp_y0', warp2.projectedCorner[0].y);
         setConfigValue('unwarp_x1', warp2.projectedCorner[1].x);
         setConfigValue('unwarp_y1', warp2.projectedCorner[1].y);
         setConfigValue('unwarp_x2', warp2.projectedCorner[2].x);
@@ -321,7 +330,7 @@
             projectedwidth: 640,
             projectedheight: 480,
             flatwidth: 256,
-            flatheight: 256,
+            flatheight: 128,
         });
 
         warp1 = new Project.Warp({
@@ -424,17 +433,62 @@
             // space
         }
 
+        // 65 83 68
+        if (evt.keyCode == 65) sound('drum1');
+        if (evt.keyCode == 83) sound('drum2');
+        if (evt.keyCode == 68) sound('drum3');
+
         evt.stopPropagation();
         return false;
     }
 
+    var drums = {};
+
+    function sound(nam) {
+        var el = drums[nam];
+        // var el = document.getElementById(nam);
+        // el.loop = true;
+        //el.pause();
+        // el.play();
+        //    el.currentTime = 0;
+        el.autoplay = true;
+        el.load();
+        el.play();
+        /*
+        el.loop = false;
+        */
+    }
+
     function beat() {
+
         gridpos ++;
         if (gridpos > 15)
             gridpos = 0;
+
+
+        if (grid[0][gridpos] > 1 || grid[1][gridpos] > 1) sound('drum1');
+        if (grid[2][gridpos] > 1 || grid[3][gridpos] > 1) sound('drum2');
+        if (grid[4][gridpos] > 1 || grid[5][gridpos] > 1) sound('drum3');
+    }
+
+    function loadDrum(url) {
+        var el = new Audio(url);
+        el.controls = true;
+        el.addEventListener('ended', function(e) {
+            el.currentTime = 0;
+            // el.load();
+        });
+        var pel = document.getElementById('screen1');
+        // pel.appendChild(el);
+        return el;
     }
 
     function init() {
+
+        drums['drum1'] = loadDrum('kick.mp3');
+        drums['drum2'] = loadDrum('hat.mp3');
+        drums['drum3'] = loadDrum('snare.mp3');
+
         textureelement = document.getElementById('texture');
         unwarpedelement = document.getElementById('unwarped');
         unwarpedoverlayelement = document.getElementById('unwarpedoverlay');
@@ -463,6 +517,8 @@
 
 </script>
 <style type="text/css">
+
+html, body { margin: 0; padding: 0; overflow: hide; }
 
 canvas#webgl {
     position: absolute;
@@ -541,8 +597,8 @@ div.hidden { display: none; }
             <div class="videoplaceholder">
                 <canvas id="webcamcanvas" width="640" height="480" style="background-color:#222;"></canvas>
                 <canvas id="webcamoverlay" width="640" height="480"></canvas>
-                <canvas id="unwarped" width="256" height="256" style="background-color:#222;"></canvas>
-                <canvas id="unwarpedoverlay" width="256" height="256"></canvas>
+                <canvas id="unwarped" width="256" height="128" style="background-color:#222;"></canvas>
+                <canvas id="unwarpedoverlay" width="256" height="128"></canvas>
             </div>
             <p>
                 Use arrow keys to move corners, 1 to 4 selects corner.
@@ -552,9 +608,9 @@ div.hidden { display: none; }
             <h2>Analyse input</h2>
             <p>Nothing is done here yet</p>
             <div class="videoplaceholder">
-                <canvas id="unwarped2" width="256" height="256" style="background-color:#222;"></canvas>
-                <canvas id="unwarpedoverlay2" width="256" height="256"></canvas>
-                <canvas id="texture" width="256" height="256" style="background-color:#222;"></canvas>
+                <canvas id="unwarped2" width="256" height="128" style="background-color:#222;"></canvas>
+                <canvas id="unwarpedoverlay2" width="256" height="128"></canvas>
+                <canvas id="texture" width="256" height="128" style="background-color:#222;"></canvas>
             </div>
         </div>
         <div id="screen3">
