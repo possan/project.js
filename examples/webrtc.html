@@ -1,0 +1,500 @@
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+<script src="../src/project.js" type="text/javascript"></script>
+<script type="text/javascript">
+
+	var videoelement;
+	var textureelement;
+    var warp1;
+    var canvaswarp1;
+    var gl;
+    var webcam_ready = false;
+
+	function onSuccess(stream) {
+	    var videoSource;
+	    if (window.webkitURL) {
+			videoSource = window.webkitURL.createObjectURL(stream);
+	    } else {
+			videoSource = stream;
+	    }
+	    videoelement.autoplay = true;
+	    videoelement.src = videoSource;
+        webcam_ready = true;
+
+	    updateDynamicTexture();
+	    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+	    gl.enable(gl.DEPTH_TEST);
+	    tick();
+
+
+
+	}
+
+	function onError() {
+	    alert('There has been a problem retreiving the streams - did you allow access?');
+	}
+
+	function initCamera() {
+		if (navigator.webkitGetUserMedia) {
+			navigator.webkitGetUserMedia({ video: true, audio: true }, onSuccess, onError);
+		} else {
+			alert('getUserMedia is not supported in this browser.');
+		}
+	}
+
+
+    function initGL(canvas) {
+        try {
+            gl = canvas.getContext("experimental-webgl");
+            gl.viewportWidth = canvas.width;
+            gl.viewportHeight = canvas.height;
+        } catch (e) {
+        }
+        if (!gl) {
+            alert("Could not initialise WebGL, sorry :-(");
+        }
+    }
+
+    function handleLoadedTexture(texture) {
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+    }
+
+    var canvasTexture;
+
+    function drawScene() {
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    }
+
+    var flatctx;
+    var flatelement;
+    var canvasunwarp;
+
+    function updateDynamicTexture() {
+        var timeNow = new Date().getTime();
+        gl.bindTexture(gl.TEXTURE_2D, canvasTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textureelement);
+    }
+
+    function initDynamicTexture() {
+        canvasTexture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, canvasTexture);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+    }
+
+    var gridpos = 0;
+
+    var grid = [
+        [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+        [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+        [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+        [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+
+        [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+        [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+        [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+        [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+    ];
+
+    function updateVideoInput() {
+        texture = videocanvaselement.getContext('2d');
+        texture.clearRect(0, 0, 640, 480);
+        if (webcam_ready)
+            texture.drawImage(videoelement, 0, 0, 640, 480);
+
+        unwarped = unwarpedelement.getContext('2d');
+        canvasunwarp.drawFlat(unwarped);
+
+        // debug stuff below
+        if (mode != 3) {
+            texture = videooverlayelement.getContext('2d');
+            texture.clearRect(0, 0, 640, 480);
+            canvasunwarp.drawProjectedDebug(texture);
+
+            unwarped = unwarped2element.getContext('2d');
+            canvasunwarp.drawFlat(unwarped);
+
+            unwarped = unwarpedoverlayelement.getContext('2d');
+            unwarped.clearRect(0, 0, 256, 256);
+            generateRecogOverlay(unwarped, true, false);
+
+            unwarped = unwarped2overlayelement.getContext('2d');
+            unwarped.clearRect(0, 0, 256, 256);
+            generateRecogOverlay(unwarped, true, true);
+        }
+    }
+
+    function generateRecogOverlay(unwarped, debug, renderoutput) {
+        if (debug) {
+            unwarped.strokeStyle = '#f0f';
+            unwarped.lineWidth = 1;
+            unwarped.beginPath();
+            unwarped.moveTo(0, 0);
+            unwarped.lineTo(Math.random()*512, 512);
+            unwarped.closePath();
+            unwarped.stroke();
+        }
+        for(var r=0; r<8; r++) {
+            for(var i=0; i<16; i++) {
+                var x = 25 + 14 * i;
+                var y = 60 + 14 * r;
+                if (renderoutput) {
+                    var v = grid[r][i];
+                    unwarped.fillStyle = '#222';
+                    if (v == 1) unwarped.fillStyle = '#fff';
+                    if (v == 2) unwarped.fillStyle = '#f30';
+                    if (v == 3) unwarped.fillStyle = '#1f2';
+                    if (v == 4) unwarped.fillStyle = '#07f';
+                    unwarped.fillRect(x-4, y-4, 8, 8);
+                }
+                if (debug) {
+                    unwarped.strokeRect(x-4, y-4, 8, 8);
+                }
+            }
+        }
+    }
+
+    function updateAnalysis() {
+        var ctx = unwarpedelement.getContext('2d');
+        var img = ctx.getImageData(0, 0, 256, 256);
+        for(var r=0; r<8; r++) {
+            for(var i=0; i<16; i++) {
+                var x = 25 + 14 * i;
+                var y = 60 + 14 * r;
+                var v = Math.round(Math.random() * 5);
+
+
+                var ar = 0;
+                var ag = 0;
+                var ab = 0;
+                for (var sy=0; sy<6; sy++){
+                    for (var sx=0; sx<6; sx++){
+                        var y2 = y - 3 + sy;
+                        var x2 = x - 3 + sx;
+                        var o = (y2 * 256 + x2) * 4;
+                        ar += img.data[o+0];
+                        ag += img.data[o+1];
+                        ab += img.data[o+2];
+                    }
+                }
+
+                ar /= 6*6;
+                ag /= 6*6;
+                ab /= 6*6;
+
+                v = 0;
+                if (ar > 128 && ag > 128 && ab > 128)
+                    v = 1;
+                else if (ar > 128 && ag < 128 && ab < 128)
+                    v = 2;
+                else if (ar < 128 && ag > 128 && ab < 128)
+                    v = 3;
+                else if (ar < 128 && ag < 128 && ab > 128)
+                    v = 4;
+
+                if (i == gridpos && r > 5)
+                    v = 3;
+
+                grid[r][i] = v;
+            }
+        }
+    }
+
+    function updateTexture() {
+
+        texture = textureelement.getContext('2d');
+        texture.fillStyle = '#000'
+
+        if (mode != 3) {
+            texture.drawImage(unwarpedelement, 0, 0, 256, 256);
+        } else {
+            texture.fillRect(0, 0, 256, 256);
+        }
+
+        if (mode != 3) {
+            texture.strokeStyle = '#f0f';
+            texture.lineWidth = 3;
+            texture.beginPath();
+            texture.moveTo(0, 0);
+            texture.lineTo(256, 0);
+            texture.lineTo(256, 256);
+            texture.lineTo(0, 256);
+            texture.lineTo(0, 0);
+            texture.closePath();
+            texture.stroke();
+
+        }
+
+        generateRecogOverlay(texture, false, true);
+    }
+
+    function tick() {
+        updateVideoInput();
+        updateAnalysis();
+        updateTexture();
+        requestAnimFrame(tick);
+        updateDynamicTexture();
+        drawScene();
+        canvaswarp1.drawProjected();
+    }
+
+    function initWarp() {
+
+        warp2 = new Project.Warp({
+            forward: true,
+            projectedwidth: 800,
+            projectedheight: 600,
+            flatwidth: 256,
+            flatheight: 256,
+        });
+
+        warp2.projectedCorner[0] = { x: 138, y: 135 };
+        warp2.projectedCorner[1] = { x: 270, y: 135 };
+        warp2.projectedCorner[2] = { x: 311, y: 200 };
+        warp2.projectedCorner[3] = { x: 95, y: 198 };
+        warp2.update();
+
+        canvasunwarp = new Project.CanvasUnwarp({
+            projection: warp2,
+            projected: videocanvaselement.getContext('2d'),
+            flat: unwarpedelement.getContext('2d')
+        });
+
+        warp1 = new Project.Warp({
+            forward: true,
+            projectedwidth: 800,
+            projectedheight: 600,
+            flatwidth: 100,
+            flatheight: 100,
+        });
+
+        warp1.projectedCorner[0] = { x: 138, y: 0 };
+        warp1.projectedCorner[1] = { x: 370, y: 85 };
+        warp1.projectedCorner[2] = { x: 311, y: 250 };
+        warp1.projectedCorner[3] = { x: 5, y: 298 };
+
+        warp1.update();
+
+        canvaswarp1 = new Project.WebGLUnwarp({
+            projection: warp1,
+            flat: flatelement,
+            flatleft: 0,
+            flattop: 0,
+            flatwidth: 1.0,
+            flatheight: 1.0,
+            projected: gl,
+            texture: canvasTexture
+        });
+    }
+
+    var mode = 0;
+    var point = 0;
+
+    function setMode(n) {
+        if (n < 0) n = 0;
+        if (n > 3) n = 3;
+        mode = n;
+        document.getElementById('overlaywrapper').style.display = (n != 3) ? 'block' : 'none';
+        document.getElementById('screen1').style.display = (n == 0) ? 'block' : 'none';
+        document.getElementById('screen2').style.display = (n == 1) ? 'block' : 'none';
+        document.getElementById('screen3').style.display = (n == 2) ? 'block' : 'none';
+    }
+
+    function setPoint(n) {
+        if (n < 0) n = 0;
+        if (n > 3) n = 3;
+        point = n;
+    }
+
+    function moveCursor(dx, dy) {
+        if (mode == 0 || mode == 1) {
+            warp2.projectedCorner[point].x += dx;
+            warp2.projectedCorner[point].y += dy;
+            warp2.update();
+        }
+        if (mode == 2 || mode == 3) {
+            warp1.projectedCorner[point].x += dx;
+            warp1.projectedCorner[point].y += dy;
+            warp1.update();
+        }
+    }
+
+    function keypress(evt) {
+        console.log('key event', evt, evt.keyCode);
+
+        if (evt.keyCode == 112) setMode(0); // F1
+        if (evt.keyCode == 113) setMode(1); // F2
+        if (evt.keyCode == 114) setMode(2); // F3
+        if (evt.keyCode == 115) setMode(3); // F4
+        if (evt.keyCode == 116) setMode(4); // F5
+        if (evt.keyCode == 117) setMode(5); // F6
+
+        if (evt.keyCode == 49) setPoint(0); // 1
+        if (evt.keyCode == 50) setPoint(1); // 2
+        if (evt.keyCode == 51) setPoint(2); // 3
+        if (evt.keyCode == 52) setPoint(3); // 4
+
+        var delta = (evt.shiftKey || evt.altKey) ? 10 : 1;
+
+        if (evt.keyCode == 37) moveCursor(-delta, 0); // left
+        if (evt.keyCode == 39) moveCursor(delta, 0); // right
+        if (evt.keyCode == 38) moveCursor(0, -delta); // up
+        if (evt.keyCode == 40) moveCursor(0, delta); // down
+
+        if (evt.keyCode == 67) {
+            // C - clear
+        }
+
+        if (evt.keyCode == 67) {
+            // M - mode
+        }
+
+        if (evt.keyCode == 32) {
+            // space
+        }
+
+        evt.stopPropagation();
+        return false;
+    }
+
+    function beat() {
+        gridpos ++;
+        if (gridpos > 15)
+            gridpos = 0;
+    }
+
+    function init() {
+        textureelement = document.getElementById('texture');
+        unwarpedelement = document.getElementById('unwarped');
+        unwarpedoverlayelement = document.getElementById('unwarpedoverlay');
+        unwarped2element = document.getElementById('unwarped2');
+        unwarped2overlayelement = document.getElementById('unwarpedoverlay2');
+    	videoelement = document.getElementById('webcam');
+        videocanvaselement = document.getElementById('webcamcanvas');
+        videooverlayelement = document.getElementById('webcamoverlay');
+
+        var canvas = document.getElementById("webgl");
+        initGL(canvas);
+        initDynamicTexture();
+        initWarp();
+
+        window.addEventListener('keydown', keypress, true);
+        setMode(0);
+        setPoint(0);
+    	setTimeout(initCamera, 100);
+        tick();
+
+        setInterval(beat, 250 * 60.0 / 125.0);
+    }
+
+</script>
+<style type="text/css">
+
+canvas#webgl {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    width: 100%;
+    height: 100%;
+}
+
+div#overlaywrapper {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    width: 50%;
+    height: 50%;
+    z-index: 9999;
+}
+
+div.overlay {
+    position: absolute;
+    right: -540px;
+    width: 1000px;
+    top: 40px;
+    padding: 40px;
+    background-color: rgba(255,255,255,0.66);
+}
+
+div.overlay h2 {
+    margin: 0;
+    color: #000;
+    font-weight: bold
+}
+
+div.videoplaceholder {
+    height: 480px;
+    position: relative;
+}
+
+div.videoplaceholder video,
+div.videoplaceholder canvas {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+}
+
+div.videoplaceholder canvas#unwarped {
+    position: absolute;
+    left: 660px;
+}
+
+div.hidden { display: none; }
+
+</style>
+</head>
+<body onLoad="init()">
+
+<canvas id="webgl" width="1600" height="1200" style="background-color:#000;"></canvas>
+
+<div id="overlaywrapper">
+    <div class="overlay">
+        <div id="screen1">
+            <h2>Camera input</h2>
+            <div class="videoplaceholder">
+                <video id="webcam" width="640" height="480" style="background-color:#222;"></video><br/>
+                <canvas id="webcamoverlay" width="640" height="480"></canvas>
+            </div>
+            <div class="videoplaceholder">
+                <canvas id="unwarped" width="256" height="256" style="background-color:#222;"></canvas>
+                <canvas id="unwarpedoverlay" width="256" height="256"></canvas>
+            </div>
+            <p>
+                Use arrow keys to move corners, 1 to 4 selects corner.
+            </p>
+        </div>
+        <div id="screen2">
+            <h2>Analyse input</h2>
+            <p>Nothing is done here yet</p>
+            <canvas id="unwarped2" width="256" height="256" style="background-color:#222;"></canvas>
+            <canvas id="unwarpedoverlay2" width="256" height="256"></canvas>
+
+            <canvas id="texture" width="256" height="256" style="background-color:#222;"></canvas>
+        </div>
+        <div id="screen3">
+            <h2>Project output</h2>
+            <p>Use arrow keys to move corners, 1 to 4 selects corner.</p>
+        </div>
+        <p class="kbd">
+            Keyboard help:<br/>
+            F1: Preview.<br/>
+            F2..F6: Edit mode.<br/>
+            Arrow keys: Move corner<br/>
+        </p>
+    </div>
+</div>
+<div class="hidden">
+    <canvas id="webcamcanvas" width="640" height="480" style="background-color:#222;"></canvas>
+</div>
+
+</body>
+</html>
