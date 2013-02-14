@@ -20,15 +20,11 @@
 	    }
 	    videoelement.autoplay = true;
 	    videoelement.src = videoSource;
-        webcam_ready = true;
 
-	    updateDynamicTexture();
-	    gl.clearColor(0.0, 0.0, 0.0, 1.0);
-	    gl.enable(gl.DEPTH_TEST);
-	    tick();
-
-
-
+        setTimeout(function(){
+    	    updateDynamicTexture();
+            webcam_ready = true;
+        }, 500);
 	}
 
 	function onError() {
@@ -118,7 +114,7 @@
         if (mode != 3) {
             texture = videooverlayelement.getContext('2d');
             texture.clearRect(0, 0, 640, 480);
-            canvasunwarp.drawProjectedDebug(texture);
+            canvasunwarp.drawProjectedDebug(texture, point);
 
             unwarped = unwarped2element.getContext('2d');
             canvasunwarp.drawFlat(unwarped);
@@ -137,11 +133,11 @@
         if (debug) {
             unwarped.strokeStyle = '#f0f';
             unwarped.lineWidth = 1;
-            unwarped.beginPath();
-            unwarped.moveTo(0, 0);
-            unwarped.lineTo(Math.random()*512, 512);
-            unwarped.closePath();
-            unwarped.stroke();
+         //   unwarped.beginPath();
+        //    unwarped.moveTo(0, 0);
+         //   unwarped.lineTo(Math.random()*512, 512);
+          //  unwarped.closePath();
+         //   unwarped.stroke();
         }
         for(var r=0; r<8; r++) {
             for(var i=0; i<16; i++) {
@@ -201,8 +197,7 @@
                 else if (ar < 128 && ag < 128 && ab > 128)
                     v = 4;
 
-                if (i == gridpos && r > 5)
-                    v = 3;
+                if (i == gridpos && r > 5) v = (i % 4 == 0) ? 1 : 4;
 
                 grid[r][i] = v;
             }
@@ -213,11 +208,10 @@
 
         texture = textureelement.getContext('2d');
         texture.fillStyle = '#000'
+        texture.fillRect(0, 0, 256, 256);
 
         if (mode != 3) {
             texture.drawImage(unwarpedelement, 0, 0, 256, 256);
-        } else {
-            texture.fillRect(0, 0, 256, 256);
         }
 
         if (mode != 3) {
@@ -229,8 +223,19 @@
             texture.lineTo(256, 256);
             texture.lineTo(0, 256);
             texture.lineTo(0, 0);
+            texture.lineTo(256, 256);
+            texture.moveTo(256, 0);
+            texture.lineTo(0, 256);
             texture.closePath();
             texture.stroke();
+
+            for (var i=0; i<4; i++) {
+                texture.strokeStyle = (i == point) ? '#ff0' : '#f0f';
+                var x = (i == 1 || i == 2) ? 255 : 0;
+                var y = (i == 2 || i == 3) ? 255 : 0;
+                texture.strokeRect(x-10, y-10, 20, 20);
+            }
+
 
         }
 
@@ -247,26 +252,76 @@
         canvaswarp1.drawProjected();
     }
 
+    function getConfigValue(key, defaultvalue) {
+        var cfgjson = localStorage['config'] || '{}';
+        var cfg = JSON.parse(cfgjson);
+        if (typeof(cfg[key]) !== 'undefined')
+            return cfg[key];
+        return defaultvalue;
+    }
+
+    function setConfigValue(key, value) {
+        var cfgjson = localStorage['config'] || '{}';
+        var cfg = JSON.parse(cfgjson);
+        cfg[key] = value;
+        localStorage['config'] = JSON.stringify(cfg);
+    }
+
+    function loadSettings() {
+        warp2.projectedCorner[0].x = getConfigValue('unwarp_x0', 40);
+        warp2.projectedCorner[0].y = getConfigValue('unwarp_y0', 10);
+        warp2.projectedCorner[1].x = getConfigValue('unwarp_x1', 600);
+        warp2.projectedCorner[1].y = getConfigValue('unwarp_y1', 50);
+        warp2.projectedCorner[2].x = getConfigValue('unwarp_x2', 630);
+        warp2.projectedCorner[2].y = getConfigValue('unwarp_y2', 470);
+        warp2.projectedCorner[3].x = getConfigValue('unwarp_x3', 10);
+        warp2.projectedCorner[3].y = getConfigValue('unwarp_y3', 470);
+
+        warp1.projectedCorner[0].x = getConfigValue('proj_x0', 58);
+        warp1.projectedCorner[0].y = getConfigValue('proj_y0', 40);
+        warp1.projectedCorner[1].x = getConfigValue('proj_x1', 680);
+        warp1.projectedCorner[1].y = getConfigValue('proj_y1', 20);
+        warp1.projectedCorner[2].x = getConfigValue('proj_x2', 780);
+        warp1.projectedCorner[2].y = getConfigValue('proj_y2', 490);
+        warp1.projectedCorner[3].x = getConfigValue('proj_x3', 5);
+        warp1.projectedCorner[3].y = getConfigValue('proj_y3', 590);
+    }
+
+    function saveSettings() {
+        setConfigValue('unwarp_x0', warp2.projectedCorner[0].x);
+        setConfigValue('unwarp_x0', warp2.projectedCorner[0].y);
+        setConfigValue('unwarp_x1', warp2.projectedCorner[1].x);
+        setConfigValue('unwarp_y1', warp2.projectedCorner[1].y);
+        setConfigValue('unwarp_x2', warp2.projectedCorner[2].x);
+        setConfigValue('unwarp_y2', warp2.projectedCorner[2].y);
+        setConfigValue('unwarp_x3', warp2.projectedCorner[3].x);
+        setConfigValue('unwarp_y3', warp2.projectedCorner[3].y);
+
+        setConfigValue('proj_x0', warp1.projectedCorner[0].x);
+        setConfigValue('proj_y0', warp1.projectedCorner[0].y);
+        setConfigValue('proj_x1', warp1.projectedCorner[1].x);
+        setConfigValue('proj_y1', warp1.projectedCorner[1].y);
+        setConfigValue('proj_x2', warp1.projectedCorner[2].x);
+        setConfigValue('proj_y2', warp1.projectedCorner[2].y);
+        setConfigValue('proj_x3', warp1.projectedCorner[3].x);
+        setConfigValue('proj_y3', warp1.projectedCorner[3].y);
+    }
+
+    var savetimer = 0;
+
+    function delayedSaveSettings () {
+        if (savetimer != 0) clearTimeout(savetimer);
+        savetimer = setTimeout(saveSettings, 1000);
+    }
+
     function initWarp() {
 
         warp2 = new Project.Warp({
             forward: true,
-            projectedwidth: 800,
-            projectedheight: 600,
+            projectedwidth: 640,
+            projectedheight: 480,
             flatwidth: 256,
             flatheight: 256,
-        });
-
-        warp2.projectedCorner[0] = { x: 138, y: 135 };
-        warp2.projectedCorner[1] = { x: 270, y: 135 };
-        warp2.projectedCorner[2] = { x: 311, y: 200 };
-        warp2.projectedCorner[3] = { x: 95, y: 198 };
-        warp2.update();
-
-        canvasunwarp = new Project.CanvasUnwarp({
-            projection: warp2,
-            projected: videocanvaselement.getContext('2d'),
-            flat: unwarpedelement.getContext('2d')
         });
 
         warp1 = new Project.Warp({
@@ -277,12 +332,17 @@
             flatheight: 100,
         });
 
-        warp1.projectedCorner[0] = { x: 138, y: 0 };
-        warp1.projectedCorner[1] = { x: 370, y: 85 };
-        warp1.projectedCorner[2] = { x: 311, y: 250 };
-        warp1.projectedCorner[3] = { x: 5, y: 298 };
+        loadSettings();
+
+        warp2.update();
 
         warp1.update();
+
+        canvasunwarp = new Project.CanvasUnwarp({
+            projection: warp2,
+            projected: videocanvaselement.getContext('2d'),
+            flat: unwarpedelement.getContext('2d')
+        });
 
         canvaswarp1 = new Project.WebGLUnwarp({
             projection: warp1,
@@ -320,11 +380,13 @@
             warp2.projectedCorner[point].x += dx;
             warp2.projectedCorner[point].y += dy;
             warp2.update();
+            delayedSaveSettings();
         }
         if (mode == 2 || mode == 3) {
             warp1.projectedCorner[point].x += dx;
             warp1.projectedCorner[point].y += dy;
             warp1.update();
+            delayedSaveSettings();
         }
     }
 
@@ -387,6 +449,9 @@
         initDynamicTexture();
         initWarp();
 
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.enable(gl.DEPTH_TEST);
+
         window.addEventListener('keydown', keypress, true);
         setMode(0);
         setPoint(0);
@@ -436,16 +501,29 @@ div.videoplaceholder {
     position: relative;
 }
 
-div.videoplaceholder video,
-div.videoplaceholder canvas {
+div.videoplaceholder video#webcam,
+div.videoplaceholder canvas#webcamcanvas,
+div.videoplaceholder canvas#webcamoverlay {
     position: absolute;
     left: 0px;
     top: 0px;
 }
 
-div.videoplaceholder canvas#unwarped {
+div.videoplaceholder canvas#unwarped,
+div.videoplaceholder canvas#unwarpedoverlay {
     position: absolute;
     left: 660px;
+}
+
+div.videoplaceholder canvas#unwarped2,
+div.videoplaceholder canvas#unwarpedoverlay2 {
+    position: absolute;
+    left: 0px;
+}
+
+div.videoplaceholder canvas#texture {
+    position: absolute;
+    left: 280px;
 }
 
 div.hidden { display: none; }
@@ -454,17 +532,15 @@ div.hidden { display: none; }
 </head>
 <body onLoad="init()">
 
-<canvas id="webgl" width="1600" height="1200" style="background-color:#000;"></canvas>
+<canvas id="webgl" width="800" height="600" style="background-color:#000;"></canvas>
 
 <div id="overlaywrapper">
     <div class="overlay">
         <div id="screen1">
             <h2>Camera input</h2>
             <div class="videoplaceholder">
-                <video id="webcam" width="640" height="480" style="background-color:#222;"></video><br/>
+                <canvas id="webcamcanvas" width="640" height="480" style="background-color:#222;"></canvas>
                 <canvas id="webcamoverlay" width="640" height="480"></canvas>
-            </div>
-            <div class="videoplaceholder">
                 <canvas id="unwarped" width="256" height="256" style="background-color:#222;"></canvas>
                 <canvas id="unwarpedoverlay" width="256" height="256"></canvas>
             </div>
@@ -475,10 +551,11 @@ div.hidden { display: none; }
         <div id="screen2">
             <h2>Analyse input</h2>
             <p>Nothing is done here yet</p>
-            <canvas id="unwarped2" width="256" height="256" style="background-color:#222;"></canvas>
-            <canvas id="unwarpedoverlay2" width="256" height="256"></canvas>
-
-            <canvas id="texture" width="256" height="256" style="background-color:#222;"></canvas>
+            <div class="videoplaceholder">
+                <canvas id="unwarped2" width="256" height="256" style="background-color:#222;"></canvas>
+                <canvas id="unwarpedoverlay2" width="256" height="256"></canvas>
+                <canvas id="texture" width="256" height="256" style="background-color:#222;"></canvas>
+            </div>
         </div>
         <div id="screen3">
             <h2>Project output</h2>
@@ -486,14 +563,14 @@ div.hidden { display: none; }
         </div>
         <p class="kbd">
             Keyboard help:<br/>
-            F1: Preview.<br/>
-            F2..F6: Edit mode.<br/>
+            F1..F3: Edit mode.<br/>
+            F4: Presentation mode.<br/>
             Arrow keys: Move corner<br/>
         </p>
     </div>
 </div>
 <div class="hidden">
-    <canvas id="webcamcanvas" width="640" height="480" style="background-color:#222;"></canvas>
+    <video id="webcam" width="640" height="480" style="background-color:#222;"></video><br/>
 </div>
 
 </body>
