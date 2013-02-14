@@ -405,10 +405,33 @@ CanvasUnwarp.prototype.cross = function(ctx, x, y, radii, lineWidth) {
 	ctx.stroke();
 }
 
-CanvasUnwarp.prototype.drawProjectedDebug = function(ctx) {
-	ctx.strokeStyle = '#f0f';
+CanvasUnwarp.prototype.drawProjectedDebug = function(ctx, sel) {
+	if (typeof(sel) === 'undefined')
+		sel = -1;
+
 	for (var c=0; c<4; c++) {
+		ctx.strokeStyle = (c == sel) ? '#ff0' : '#f0f';
 		this.cross(ctx, this.projection.projectedCorner[c].x, this.projection.projectedCorner[c].y, 10, 3);
+	}
+
+	ctx.lineWidth = 1;
+	ctx.strokeStyle = '#f0f';
+	for (var i=0; i<=4; i++) {
+		var u = i * this.projection.flatwidth / 4;
+		var v = i * this.projection.flatheight / 4;
+
+		var p0 = this.projection.flatToProjected(u, 0);
+		var p1 = this.projection.flatToProjected(u, this.projection.flatheight);
+		var p2 = this.projection.flatToProjected(0, v);
+		var p3 = this.projection.flatToProjected(this.projection.flatwidth, v);
+
+		ctx.beginPath();
+		ctx.moveTo(p0.x, p0.y);
+		ctx.lineTo(p1.x, p1.y);
+		ctx.moveTo(p2.x, p2.y);
+		ctx.lineTo(p3.x, p3.y);
+		ctx.closePath();
+		ctx.stroke();
 	}
 }
 
