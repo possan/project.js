@@ -267,9 +267,11 @@ var CanvasUnwarp = function(options) {
 	}
 }
 
-CanvasUnwarp.prototype.drawProjected = function() {
+CanvasUnwarp.prototype.drawProjected = function(target) {
 	// unwarp the contents of the projected quad into the entire flat canvas
 	var p = this.projection;
+
+	var target = target || this.projected;
 
 	var bounds = p.getProjectedCornerBounds();
 
@@ -287,7 +289,7 @@ CanvasUnwarp.prototype.drawProjected = function() {
 			this.bufferwidth,
 			this.bufferheight);
 
-		var targdata = this.projected.getImageData(
+		var targdata = target.getImageData(
 			0,
 			0,
 			p.projectedwidth,
@@ -310,7 +312,7 @@ CanvasUnwarp.prototype.drawProjected = function() {
 			}
 		}
 
-		this.projected.putImageData(targdata, 0, 0);
+		target.putImageData(targdata, 0, 0);
 
 	} else {
 
@@ -320,7 +322,7 @@ CanvasUnwarp.prototype.drawProjected = function() {
 			p.flatwidth,
 			p.flatheight);
 
-		var targdata = this.projected.getImageData(
+		var targdata = target.getImageData(
 			0,
 			0,
 			p.projectedwidth,
@@ -342,17 +344,19 @@ CanvasUnwarp.prototype.drawProjected = function() {
 				}
 			}
 		}
-		this.projected.putImageData(targdata, 0, 0);
+		target.putImageData(targdata, 0, 0);
 	}
 
 
 }
 
-CanvasUnwarp.prototype.drawFlat = function() {
+CanvasUnwarp.prototype.drawFlat = function(target) {
 	// unwarp the contents of the projected quad into the entire flat canvas
 	var p = this.projection;
 
-	this.flat.clearRect(
+	var target = target || this.flat;
+
+	target.clearRect(
 		0,
 		0,
 		p.flatwidth,
@@ -364,7 +368,7 @@ CanvasUnwarp.prototype.drawFlat = function() {
 		p.projectedwidth,
 		p.projectedheight);
 
-	var targdata = this.flat.getImageData(
+	var targdata = target.getImageData(
 		0,
 		0,
 		p.flatwidth,
@@ -387,7 +391,7 @@ CanvasUnwarp.prototype.drawFlat = function() {
 		}
 	}
 
-	this.flat.putImageData(targdata, 0, 0);
+	target.putImageData(targdata, 0, 0);
 }
 
 CanvasUnwarp.prototype.cross = function(ctx, x, y, radii, lineWidth) {
