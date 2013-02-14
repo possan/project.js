@@ -416,9 +416,9 @@ CanvasUnwarp.prototype.drawProjectedDebug = function(ctx, sel) {
 
 	ctx.lineWidth = 1;
 	ctx.strokeStyle = '#f0f';
-	for (var i=0; i<=4; i++) {
-		var u = i * this.projection.flatwidth / 4;
-		var v = i * this.projection.flatheight / 4;
+	for (var i=0; i<=8; i++) {
+		var u = i * this.projection.flatwidth / 8;
+		var v = i * this.projection.flatheight / 8;
 
 		var p0 = this.projection.flatToProjected(u, 0);
 		var p1 = this.projection.flatToProjected(u, this.projection.flatheight);
