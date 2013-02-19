@@ -405,9 +405,10 @@ CanvasUnwarp.prototype.cross = function(ctx, x, y, radii, lineWidth) {
 	ctx.stroke();
 }
 
-CanvasUnwarp.prototype.drawProjectedDebug = function(ctx, sel) {
-	if (typeof(sel) === 'undefined')
-		sel = -1;
+CanvasUnwarp.prototype.drawProjectedDebug = function(ctx, sel, cols, rows) {
+	if (typeof(sel) === 'undefined') sel = -1;
+	if (typeof(cols) === 'undefined') cols = 16;
+	if (typeof(rows) === 'undefined') rows = 16;
 
 	for (var c=0; c<4; c++) {
 		ctx.strokeStyle = (c == sel) ? '#ff0' : '#f0f';
@@ -416,18 +417,22 @@ CanvasUnwarp.prototype.drawProjectedDebug = function(ctx, sel) {
 
 	ctx.lineWidth = 1;
 	ctx.strokeStyle = '#f0f';
-	for (var i=0; i<=8; i++) {
-		var u = i * this.projection.flatwidth / 8;
-		var v = i * this.projection.flatheight / 8;
-
+	var i;
+	for (i=0; i<=cols; i++) {
+		var u = i * this.projection.flatwidth / cols;
 		var p0 = this.projection.flatToProjected(u, 0);
 		var p1 = this.projection.flatToProjected(u, this.projection.flatheight);
-		var p2 = this.projection.flatToProjected(0, v);
-		var p3 = this.projection.flatToProjected(this.projection.flatwidth, v);
-
 		ctx.beginPath();
 		ctx.moveTo(p0.x, p0.y);
 		ctx.lineTo(p1.x, p1.y);
+		ctx.closePath();
+		ctx.stroke();
+	}
+	for (i=0; i<=rows; i++) {
+		var v = i * this.projection.flatheight / rows;
+		var p2 = this.projection.flatToProjected(0, v);
+		var p3 = this.projection.flatToProjected(this.projection.flatwidth, v);
+		ctx.beginPath();
 		ctx.moveTo(p2.x, p2.y);
 		ctx.lineTo(p3.x, p3.y);
 		ctx.closePath();

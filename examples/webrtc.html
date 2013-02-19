@@ -120,7 +120,7 @@
         if (mode != 3) {
             texture = videooverlayelement.getContext('2d');
             texture.clearRect(0, 0, 640, 480);
-            canvasunwarp.drawProjectedDebug(texture, point);
+            canvasunwarp.drawProjectedDebug(texture, point, 16, 8);
 
             unwarped = unwarped2element.getContext('2d');
             canvasunwarp.drawFlat(unwarped);
