@@ -103,9 +103,15 @@
 
     function updateVideoInput() {
         texture = videocanvaselement.getContext('2d');
-        texture.clearRect(0, 0, 640, 480);
-        if (webcam_ready)
+        if (webcam_ready) {
+            texture.globalAlpha = 0.1;
             texture.drawImage(videoelement, 0, 0, 640, 480);
+        } else {
+            texture.clearRect(0, 0, 640, 480);
+        }
+    }
+
+    function unwarpVideoInput() {
 
         unwarped = unwarpedelement.getContext('2d');
         canvasunwarp.drawFlat(unwarped);
@@ -133,11 +139,6 @@
         if (debug) {
             unwarped.strokeStyle = '#f0f';
             unwarped.lineWidth = 1;
-         //   unwarped.beginPath();
-        //    unwarped.moveTo(0, 0);
-         //   unwarped.lineTo(Math.random()*512, 512);
-          //  unwarped.closePath();
-         //   unwarped.stroke();
         }
         for(var r=0; r<8; r++) {
             for(var i=0; i<16; i++) {
@@ -157,7 +158,11 @@
                         if (v == 4) unwarped.fillStyle = '#131';
                         if (v == 5) unwarped.fillStyle = '#013';
                     }
-                    unwarped.fillRect(x+2, y+2, 12, 12);
+                    unwarped.fillRect(x+2, y+2, 11, 11);
+
+                    unwarped.fillStyle = '#fff';
+                    unwarped.fillRect(x+7, y+7, 1, 1);
+
                 }
                 if (debug) {
                     unwarped.strokeRect(x+2, y+2, 12, 12);
@@ -179,10 +184,10 @@
                 var ar = 0;
                 var ag = 0;
                 var ab = 0;
-                for (var sy=0; sy<16; sy++){
-                    for (var sx=0; sx<16; sx++){
-                        var y2 = y - 0 + sy;
-                        var x2 = x - 0 + sx;
+                for (var sy=0; sy<8; sy++){
+                    for (var sx=0; sx<8; sx++){
+                        var y2 = y - 4 + sy;
+                        var x2 = x - 4 + sx;
                         var o = (y2 * 256 + x2) * 4;
                         ar += img.data[o+0];
                         ag += img.data[o+1];
@@ -190,9 +195,9 @@
                     }
                 }
 
-                ar /= 16*16;
-                ag /= 16*16;
-                ab /= 16*16;
+                ar /= 8*8;
+                ag /= 8*8;
+                ab /= 8*8;
 
                 v = 0;
                 if (ar > 128 && ag > 128 && ab > 128)
@@ -251,9 +256,16 @@
         generateRecogOverlay(texture, false, true);
     }
 
+    var frameacc = 10;
+    var tickindex = 0;
+
     function tick() {
         updateVideoInput();
-        updateAnalysis();
+        if (tickindex % frameacc == 0) {
+            unwarpVideoInput();
+            updateAnalysis();
+        }
+        tickindex ++;
         updateTexture();
         requestAnimFrame(tick);
         updateDynamicTexture();
@@ -445,15 +457,21 @@
     var drums = {};
 
     function sound(nam) {
-        var el = drums[nam];
+        // var el = drums[nam];
+        var el = new Audio();
+        el.src = drums[nam];
         // var el = document.getElementById(nam);
         // el.loop = true;
         //el.pause();
         // el.play();
         //    el.currentTime = 0;
-        el.autoplay = true;
-        el.load();
+        // el.autoplay = true;
+        // el.load();
+        document.body.appendChild(el);
         el.play();
+        setTimeout(function() {
+            document.body.removeChild(el);
+        }, 1000);
         /*
         el.loop = false;
         */
@@ -485,9 +503,9 @@
 
     function init() {
 
-        drums['drum1'] = loadDrum('kick.mp3');
-        drums['drum2'] = loadDrum('hat.mp3');
-        drums['drum3'] = loadDrum('snare.mp3');
+        drums['drum1'] = 'kick.mp3';
+        drums['drum2'] = 'hat.mp3';
+        drums['drum3'] = 'snare.mp3';
 
         textureelement = document.getElementById('texture');
         unwarpedelement = document.getElementById('unwarped');
@@ -518,7 +536,7 @@
 </script>
 <style type="text/css">
 
-html, body { margin: 0; padding: 0; overflow: hide; }
+html, body { margin: 0; padding: 0; overflow: hidden; }
 
 canvas#webgl {
     position: absolute;
