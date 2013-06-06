@@ -5,6 +5,36 @@
 <script src="simple-reverb.js" type="text/javascript"></script>
 <script type="text/javascript">
 
+    var CAMERAWIDTH = 640;
+    var CAMERAHEIGHT = 400;
+    var CAMERATRANSPARENCY = 0.25;
+
+    var COLORTRESHOLD = 128;
+
+    var ROWS = 8;
+    var COLUMNS = 16;
+
+    var BPM = 80;
+    var SHUFFLE = 0;
+
+    var CAMTEXTUREWIDTH = 256;
+    var CAMTEXTUREHEIGHT = 128;
+
+    var REVERBWET = 0.66;
+
+    var SENSEWIDTH = 8;
+    var SENSEHEIGHT = 8;
+
+    var ANALYZEWIDTH = 256;
+    var ANALYZEHEIGHT = 128;
+
+    var OUTPUTWIDTH = 512;
+    var OUTPUTHEIGHT = 256;
+    var OUTPUTGRIDWIDTH = 32;
+    var OUTPUTGRIDHEIGHT = 32;
+
+    var H = 0.5;
+
 	var videoelement;
 	var textureelement;
     var warp1;
@@ -22,7 +52,7 @@
 	    videoelement.autoplay = true;
 	    videoelement.src = videoSource;
 
-        setTimeout(function(){
+        setTimeout(function() {
     	    updateDynamicTexture();
             webcam_ready = true;
         }, 500);
@@ -90,25 +120,22 @@
 
     var gridpos = -1;
 
-    var grid = [
-        [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
-        [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
-        [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
-        [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
-
-        [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
-        [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
-        [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
-        [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
-    ];
+    var grid = [];
+    for(var i=0; i<ROWS; i++) {
+        var row = [];
+        for(var j=0; j<COLUMNS; j++) {
+            row.push(0);
+        }
+        grid.push(row);
+    }
 
     function updateVideoInput() {
         texture = videocanvaselement.getContext('2d');
         if (webcam_ready) {
-            texture.globalAlpha = 0.1;
-            texture.drawImage(videoelement, 0, 0, 640, 480);
+            texture.globalAlpha = CAMERATRANSPARENCY;
+            texture.drawImage(videoelement, 0, 0, CAMERAWIDTH, CAMERAHEIGHT);
         } else {
-            texture.clearRect(0, 0, 640, 480);
+            texture.clearRect(0, 0, CAMERAWIDTH, CAMERAHEIGHT);
         }
     }
 
@@ -120,31 +147,40 @@
         // debug stuff below
         if (mode != 3) {
             texture = videooverlayelement.getContext('2d');
-            texture.clearRect(0, 0, 640, 480);
-            canvasunwarp.drawProjectedDebug(texture, point, 16, 8);
+            texture.clearRect(0, 0, CAMERAWIDTH, CAMERAHEIGHT);
+            canvasunwarp.drawProjectedDebug(texture, point, COLUMNS, ROWS);
 
             unwarped = unwarped2element.getContext('2d');
             canvasunwarp.drawFlat(unwarped);
 
             unwarped = unwarpedoverlayelement.getContext('2d');
             unwarped.clearRect(0, 0, 256, 128);
-            generateRecogOverlay(unwarped, true, false);
+            generateRecogOverlay(unwarped, true, false, 16,16);
 
             unwarped = unwarped2overlayelement.getContext('2d');
             unwarped.clearRect(0, 0, 256, 128);
-            generateRecogOverlay(unwarped, true, true);
+            generateRecogOverlay(unwarped, true, true, 16,16);
         }
     }
 
-    function generateRecogOverlay(unwarped, debug, renderoutput) {
+    function generateRecogOverlay(unwarped, debug, renderoutput, gridwidth,gridheight ) {
+
+        var hgw = gridwidth / 2.0;
+        var hgh = gridheight / 2.0;
+
+        var centersize = 0.05;
+        var barsize = 0.15;
+        var highlightsize = 0.3;
+        var fillsize = 0.8;
+
         if (debug) {
             unwarped.strokeStyle = '#f0f';
             unwarped.lineWidth = 1;
         }
-        for(var r=0; r<8; r++) {
-            for(var i=0; i<16; i++) {
-                var x = 0 + 16 * i;
-                var y = 0 + 16 * r;
+        for(var r=0; r<ROWS; r++) {
+            for(var i=0; i<COLUMNS; i++) {
+                var x = 0 + gridwidth * i;
+                var y = 0 + gridheight * r;
                 var v = grid[r][i];
 
                 if (debug) {
@@ -154,7 +190,8 @@
                     if (v == 3) unwarped.fillStyle = '#f10';
                     if (v == 4) unwarped.fillStyle = '#1f1';
                     if (v == 5) unwarped.fillStyle = '#01f';
-                    unwarped.fillRect(x+2, y+8, 12, 4);
+                    if (v == 6) unwarped.fillStyle = '#f1f';
+                    unwarped.fillRect(x+2, y+gridheight-8, gridwidth-4, 4);
                 }
 
                 if (renderoutput) {
@@ -165,30 +202,49 @@
                             unwarped.fillStyle = '#fff';
                     } else {
                         // if (v == 1) unwarped.fillStyle = '#222';
-                        if (v == 2) unwarped.fillStyle = '#330';
-                        if (v == 3) unwarped.fillStyle = '#310';
-                        if (v == 4) unwarped.fillStyle = '#131';
-                        if (v == 5) unwarped.fillStyle = '#013';
+                        if (v == 2) unwarped.fillStyle = '#550';
+                        if (v == 3) unwarped.fillStyle = '#510';
+                        if (v == 4) unwarped.fillStyle = '#151';
+                        if (v == 5) unwarped.fillStyle = '#015';
+                        if (v == 6) unwarped.fillStyle = '#515';
                     }
-                    unwarped.fillRect(x+2, y+2, 11, 11);
-
-                    unwarped.fillStyle = (i == gridpos) ? '#fff' : '#888';
-                    unwarped.fillRect(x+7, y+7, 1, 1);
-
-                }
-                if (debug) {
-                    unwarped.strokeRect(x+2, y+2, 12, 12);
-
+                    if (v > 1) {
+                        unwarped.fillRect(x+hgw-(hgw*fillsize)-H, y+hgh-(hgh*fillsize)-H, gridwidth*fillsize, gridheight*fillsize);
+                    }
+                    if (i == gridpos) {
+                        unwarped.fillStyle = '#fff';
+                        unwarped.fillRect(x+hgw-(hgw*barsize)-H, y+hgh-(hgh*barsize)-H, gridwidth*barsize, gridheight*barsize);
+                    } else {
+                        unwarped.fillStyle = (i % 4 == 0 && r % 4 == 0) ? '#777' : '#333';
+                        unwarped.fillRect(x+hgw-(hgw*centersize)-H, y+hgh-(hgh*centersize)-H, gridwidth*centersize, gridheight*centersize);
+                    }
                 }
             }
+        }
+
+        // draw gridlines
+
+        unwarped.lineWidth = 1;
+        unwarped.strokeStyle = '#444';
+
+        for(var r=0; r<ROWS-1; r++) {
+            var y = 0 + gridwidth * r;
+            unwarped.strokeRect(0, y+gridheight-H, OUTPUTWIDTH, 0);
+        }
+
+        for(var i=0; i<COLUMNS-1; i++) {
+            var x = 0 + gridheight * i;
+            unwarped.strokeRect(x+gridwidth-H, 0, 0, OUTPUTHEIGHT);
         }
     }
 
     function updateAnalysis() {
+
+
         var ctx = unwarpedelement.getContext('2d');
-        var img = ctx.getImageData(0, 0, 256, 128);
-        for(var r=0; r<8; r++) {
-            for(var i=0; i<16; i++) {
+        var img = ctx.getImageData(0, 0, CAMTEXTUREWIDTH, CAMTEXTUREHEIGHT);
+        for(var r=0; r<ROWS; r++) {
+            for(var i=0; i<COLUMNS; i++) {
                 var x = 0 + 16 * i;
                 var y = 0 + 16 * r;
                 var v = Math.round(Math.random() * 5);
@@ -197,35 +253,34 @@
                 var ar = 0;
                 var ag = 0;
                 var ab = 0;
-                for (var sy=0; sy<8; sy++){
-                    for (var sx=0; sx<8; sx++){
-                        var y2 = y + 4 + sy;
-                        var x2 = x + 4 + sx;
-                        var o = (y2 * 256 + x2) * 4;
+                for (var sy=0; sy<SENSEWIDTH; sy++) {
+                    for (var sx=0; sx<SENSEHEIGHT; sx++) {
+                        var y2 = y + SENSEWIDTH/2 + sy;
+                        var x2 = x + SENSEHEIGHT/2 + sx;
+                        var o = (y2 * CAMTEXTUREWIDTH + x2) * 4;
                         ar += img.data[o+0];
                         ag += img.data[o+1];
                         ab += img.data[o+2];
                     }
                 }
 
-                ar /= 8*8;
-                ag /= 8*8;
-                ab /= 8*8;
+                ar /= SENSEWIDTH*SENSEHEIGHT;
+                ag /= SENSEWIDTH*SENSEHEIGHT;
+                ab /= SENSEWIDTH*SENSEHEIGHT;
 
-                var cutoff = 150;
                 v = 0;
-                if (ar > cutoff && ag > cutoff && ab > cutoff)
+                if (ar > COLORTRESHOLD && ag > COLORTRESHOLD && ab > COLORTRESHOLD)
                     v = 1;
-                else if (ar > cutoff && ag > cutoff && ab < cutoff)
+                else if (ar > COLORTRESHOLD && ag > COLORTRESHOLD && ab < COLORTRESHOLD)
                     v = 2;
-                else if (ar > cutoff && ag < cutoff && ab < cutoff)
+                else if (ar > COLORTRESHOLD && ag < COLORTRESHOLD && ab < COLORTRESHOLD)
                     v = 3;
-                else if (ar < cutoff && ag > cutoff && ab < cutoff)
+                else if (ar < COLORTRESHOLD && ag > COLORTRESHOLD && ab < COLORTRESHOLD)
                     v = 4;
-                else if (ar < cutoff && ag < cutoff && ab > cutoff)
+                else if (ar < COLORTRESHOLD && ag < COLORTRESHOLD && ab > COLORTRESHOLD)
                     v = 5;
-
-   //             if (i == gridpos && r > 5) v = (i % 4 == 0) ? 1 : 4;
+                else if (ar > COLORTRESHOLD && ag < COLORTRESHOLD && ab > COLORTRESHOLD)
+                    v = 6;
 
                 grid[r][i] = v;
             }
@@ -236,38 +291,38 @@
 
         texture = textureelement.getContext('2d');
         texture.fillStyle = '#000'
-        texture.fillRect(0, 0, 256, 128);
+        texture.fillRect(0, 0, OUTPUTWIDTH, OUTPUTHEIGHT);
 
         if (mode != 3) {
-            texture.drawImage(unwarpedelement, 0, 0, 256, 128);
+            texture.drawImage(unwarpedelement, 0, 0, OUTPUTWIDTH, OUTPUTHEIGHT);
         }
 
         if (mode != 3) {
             texture.strokeStyle = '#f0f';
-            texture.lineWidth = 3;
+            texture.lineWidth = 1;
             texture.beginPath();
-            texture.moveTo(0, 0);
-            texture.lineTo(256, 0);
-            texture.lineTo(256, 128);
-            texture.lineTo(0, 128);
-            texture.lineTo(0, 0);
-            texture.lineTo(256, 128);
-            texture.moveTo(256, 0);
-            texture.lineTo(0, 128);
+            texture.moveTo(H,H);
+            texture.lineTo(OUTPUTWIDTH-H, H);
+            texture.lineTo(OUTPUTWIDTH-H, OUTPUTHEIGHT-H);
+            texture.lineTo(H, OUTPUTHEIGHT-H);
+            texture.lineTo(H, H);
+            texture.lineTo(OUTPUTWIDTH-H, OUTPUTHEIGHT-H);
+            texture.moveTo(OUTPUTWIDTH-H, H);
+            texture.lineTo(H, OUTPUTHEIGHT-H);
             texture.closePath();
             texture.stroke();
 
             for (var i=0; i<4; i++) {
                 texture.strokeStyle = (i == point) ? '#ff0' : '#f0f';
-                var x = (i == 1 || i == 2) ? 255 : 0;
-                var y = (i == 2 || i == 3) ? 255 : 0;
+                var x = (i == 1 || i == 2) ? OUTPUTWIDTH-H : H;
+                var y = (i == 2 || i == 3) ? OUTPUTHEIGHT-H : H;
                 texture.strokeRect(x-10, y-10, 20, 20);
             }
 
 
         }
 
-        generateRecogOverlay(texture, false, true);
+        generateRecogOverlay(texture, false, true, OUTPUTGRIDWIDTH, OUTPUTGRIDHEIGHT);
     }
 
     var frameacc = 5;
@@ -359,10 +414,10 @@
 
         warp2 = new Project.Warp({
             forward: true,
-            projectedwidth: 640,
-            projectedheight: 480,
-            flatwidth: 256,
-            flatheight: 128,
+            projectedwidth: CAMERAWIDTH,
+            projectedheight: CAMERAHEIGHT,
+            flatwidth: ANALYZEWIDTH,
+            flatheight: ANALYZEHEIGHT,
         });
 
         warp1 = new Project.Warp({
@@ -465,7 +520,7 @@
             // space
         }
 
-        // 65 83 68 70 ASDF
+        // 65 83 68 70 ASDFGHJK
         if (evt.keyCode == 65) sound('drum0');
         if (evt.keyCode == 83) sound('drum1');
         if (evt.keyCode == 68) sound('drum2');
@@ -484,12 +539,12 @@
     var shuffleinterval1, shuffleinterval2;
 
     function sound(nam) {
-        console.log('trigger sound: '+nam);
+        console.log('trigger sound: '+nam+', volume '+drumvolume[nam]);
         var source = audiocontext.createBufferSource();
         var gain = audiocontext.createGainNode();
         source.buffer = drumbuffer[nam];
         source.connect(gain);
-        gain.gain = drumvolume[nam];
+        gain.gain.value = drumvolume[nam];
         gain.connect(verbwet);
         gain.connect(verbdry);
         source.noteOn(0);
@@ -516,17 +571,14 @@
             playtime -= interval;
 
             gridpos ++;
-            if (gridpos > 15)
+            if (gridpos >= COLUMNS)
                 gridpos = 0;
 
-            if (grid[0][gridpos] > 1) sound('drum0');
-            if (grid[1][gridpos] > 1) sound('drum1');
-            if (grid[2][gridpos] > 1) sound('drum2');
-            if (grid[3][gridpos] > 1) sound('drum3');
-            if (grid[4][gridpos] > 1) sound('drum4');
-            if (grid[5][gridpos] > 1) sound('drum5');
-            if (grid[6][gridpos] > 1) sound('drum6');
-            if (grid[7][gridpos] > 1) sound('drum7');
+            for(var r=0; r<ROWS; r++) {
+                if (grid[r][gridpos] > 1) {
+                    sound('drum'+r);
+                }
+            }
         }
     }
 
@@ -553,10 +605,10 @@
     var compressor = audiocontext.createDynamicsCompressor();
 
     var verbwet = audiocontext.createGainNode();
-    verbwet.gain = 0.3
+    verbwet.gain.value = REVERBWET;
 
     var verbdry = audiocontext.createGainNode();
-    verbdry.gain = 0.7
+    verbdry.gain.value = 1.0 - REVERBWET;
 
     var verb = new SimpleReverb(audiocontext, {
         seconds: 5,
@@ -578,22 +630,45 @@
         // loadDrum2('drum4', 'snare.mp3', 0.22);
 
         loadDrum2('drum0', 'drum0.mp3', 1.0);
-        loadDrum2('drum1', 'drum1.mp3', 0.6);
+        loadDrum2('drum1', 'drum1.mp3', 0.5);
         loadDrum2('drum2', 'drum2.mp3', 1.0);
         loadDrum2('drum3', 'drum3.mp3', 1.0);
         loadDrum2('drum4', 'drum4.mp3', 0.6);
-        loadDrum2('drum5', 'drum5.mp3', 1.0);
+        loadDrum2('drum5', 'drum5.mp3', 2.0);
         loadDrum2('drum6', 'drum6.mp3', 0.6);
         loadDrum2('drum7', 'drum7.mp3', 1.0);
 
         textureelement = document.getElementById('texture');
+        textureelement.setAttribute('width', OUTPUTWIDTH);
+        textureelement.setAttribute('height', OUTPUTHEIGHT);
+
         unwarpedelement = document.getElementById('unwarped');
+        unwarpedelement.setAttribute('width', ANALYZEWIDTH);
+        unwarpedelement.setAttribute('height', ANALYZEHEIGHT);
+
         unwarpedoverlayelement = document.getElementById('unwarpedoverlay');
+        unwarpedoverlayelement.setAttribute('width', ANALYZEWIDTH);
+        unwarpedoverlayelement.setAttribute('height', ANALYZEHEIGHT);
+
         unwarped2element = document.getElementById('unwarped2');
+        unwarped2element.setAttribute('width', ANALYZEWIDTH);
+        unwarped2element.setAttribute('height', ANALYZEHEIGHT);
+
         unwarped2overlayelement = document.getElementById('unwarpedoverlay2');
+        unwarped2overlayelement.setAttribute('width', ANALYZEWIDTH);
+        unwarped2overlayelement.setAttribute('height', ANALYZEHEIGHT);
+
     	videoelement = document.getElementById('webcam');
+        videoelement.setAttribute('width', CAMERAWIDTH);
+        videoelement.setAttribute('height', CAMERAHEIGHT);
+
         videocanvaselement = document.getElementById('webcamcanvas');
+        videocanvaselement.setAttribute('width', CAMERAWIDTH);
+        videocanvaselement.setAttribute('height', CAMERAHEIGHT);
+
         videooverlayelement = document.getElementById('webcamoverlay');
+        videooverlayelement.setAttribute('width', CAMERAWIDTH);
+        videooverlayelement.setAttribute('height', CAMERAHEIGHT);
 
         var canvas = document.getElementById("webgl");
         initGL(canvas);
@@ -610,9 +685,9 @@
         tick();
 
         stepstart = (new Date()).getTime();
-        stepinterval = Math.round(250.0 * 60.0 / 80.0);
-        shuffleinterval1 = stepinterval * 1.1;
-        shuffleinterval2 = stepinterval * 0.9;
+        stepinterval = Math.round(250.0 * 60.0 / BPM);
+        shuffleinterval1 = stepinterval * 1.0 + SHUFFLE/100.0;
+        shuffleinterval2 = stepinterval * 1.0 - SHUFFLE/100.0;
         setInterval(tickVideoInput, 100);
     }
 
@@ -669,7 +744,7 @@ div.videoplaceholder canvas#webcamoverlay {
 div.videoplaceholder canvas#unwarped,
 div.videoplaceholder canvas#unwarpedoverlay {
     position: absolute;
-    left: 660px;
+    left: 760px;
 }
 
 div.videoplaceholder canvas#unwarped2,
