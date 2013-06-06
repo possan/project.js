@@ -73,23 +73,20 @@
 
     function initGL(canvas) {
         try {
-            gl = canvas.getContext("experimental-webgl");
+            gl = canvas.getContext("webgl", { antialias: true });
             gl.viewportWidth = canvas.width;
             gl.viewportHeight = canvas.height;
         } catch (e) {
+            try {
+                gl = canvas.getContext("experimental-webgl");
+                gl.viewportWidth = canvas.width;
+                gl.viewportHeight = canvas.height;
+            } catch (e) {
+            }
         }
         if (!gl) {
             alert("Could not initialise WebGL, sorry :-(");
         }
-    }
-
-    function handleLoadedTexture(texture) {
-        gl.bindTexture(gl.TEXTURE_2D, texture);
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-        gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
     var canvasTexture;
@@ -113,8 +110,15 @@
         canvasTexture = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, canvasTexture);
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        var ext = gl.getExtension("MOZ_EXT_texture_filter_anisotropic");
+        if (ext) {
+            var max_anisotropy = gl.getParameter(ext.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
+            gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, max_anisotropy);
+        }
         gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
@@ -168,10 +172,9 @@
         var hgw = gridwidth / 2.0;
         var hgh = gridheight / 2.0;
 
-        var centersize = 0.05;
-        var barsize = 0.15;
-        var highlightsize = 0.3;
-        var fillsize = 0.8;
+        var centersize = 0.5 / hgw;
+        var barsize = 1.5 / hgh;
+        var fillsize = (gridwidth-3) / gridwidth;
 
         if (debug) {
             unwarped.strokeStyle = '#f0f';
